@@ -1,0 +1,46 @@
+import yfinance
+import os
+import queue
+import time
+import threading
+
+def single_threaded_retrieval():
+    return 0
+
+def get_tickers(path):
+    tickers = []
+    try:
+        with open(path, "r") as file:
+            for line in file:
+                tickers.append(line.strip())
+    except FileNotFoundError:
+        print("File not found")
+
+def fetch_data(tickers, num_threads):
+    start_time = time.perf_counter()
+    task_queue = queue.Queue()
+    for i in range(len(tickers)):
+        task_queue.put(tickers[i])
+    
+    threads = []
+    for _ in range(num_threads):
+        thread = threading.Thread(target=)
+
+    end_time = time.perf_counter()
+    execution_time = end_time - start_time
+    print(f"Execution Time: {execution_time}")
+
+
+def worker_thread_task():
+    while True:
+        return None
+
+def main():
+    num_cpus = os.cpu_count()
+    print(f"Number of CPUs: {num_cpus}")
+    path = r"C:\Users\ashud\NewProjects\PortfolioAnalysisMonorepo\portfolioTickers"
+    tickers = get_tickers(path)
+    return 0
+
+if __name__ == "__main__":
+    main()
