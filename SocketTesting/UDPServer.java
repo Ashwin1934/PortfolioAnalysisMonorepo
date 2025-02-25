@@ -1,29 +1,27 @@
 package SocketTesting;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketTimeoutException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.List;
-import java.util.ArrayList;
 
 public class UDPServer {
 
-    private static String UDP_IP = "127.0.0.1";
     private static int UDP_PORT = 5005;
-    private static int num_processors = Runtime.getRuntime().availableProcessors();
-    private static AtomicBoolean continue_polling = new AtomicBoolean(true);
+    private static final int numProcessors = Runtime.getRuntime().availableProcessors();
+    private static AtomicBoolean continuePolling = new AtomicBoolean(true);
 
 
     public static void main(String[] args) {
-        shutdownUDPServerAfterSetDuration(1);
+        shutdownUDPServerAfterSetDuration(15);
         launchUDPServer();
 
     }
@@ -32,48 +30,49 @@ public class UDPServer {
         System.out.println("UDP server up and listening on 127.0.0.1:5005");
         try {
 
-            ExecutorService executorService = launchExecutorService(num_processors);
+            ExecutorService executorService = launchExecutorService(numProcessors);
             List<Future<?>> futures = new ArrayList<>();
 
-            DatagramSocket socket = new DatagramSocket(UDP_PORT);
-            socket.setSoTimeout(1000);
-            byte[] buffer = new byte[200]; // todo configurable number 
+            DatagramChannel channel = DatagramChannel.open();
+            channel.bind(new InetSocketAddress(UDP_PORT));
+            channel.configureBlocking(false);
+            ByteBuffer buffer = ByteBuffer.allocate(200);
 
-            while (continue_polling.get()) {
+            while (continuePolling.get()) {
                 try {
-                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                    
-                    socket.receive(packet); // this blocks until a datagram packet is received or an error is encountered
+                    /**
+                     * Switched from DatagramSocket to DatagramChannel for the non-blocking capabilities of DatagramChannel.
+                     * DatagramSocket receive() method blocks until a packet is received or error is encountered.
+                     * This breaks the ScheduledExecutorService logic which tries to reset the boolean value.
+                     */
+                    SocketAddress senderAddress = channel.receive(buffer); // returns data if available right away otherwise null
+                    if (senderAddress != null) {
+                        buffer.flip();
+                        byte[] data = new byte[buffer.remaining()];
+                        buffer.get(data);
 
-                    InetAddress address = packet.getAddress();
-                    int receivedPort = packet.getPort();
-                    String data = new String(packet.getData(), 0, packet.getLength());
+                        System.out.println("Received message from "+ senderAddress + ":" + new String(data));
 
-                    System.out.println("Received message:" + data + "from " + address + ":" + receivedPort);
-                    Future<?> future = executorService.submit(new Runnable() {
-                        @Override
-                        public void run() {
-                            System.out.println("thread" + Thread.currentThread().getName());
-                            System.out.println("Received message:" + data + "from " + address + ":" + receivedPort);
-                        }
-                    });
-                    futures.add(future);
-                    future.get(); // try this out, I feel it may block the process...
-                } catch (SocketTimeoutException e) {
-
+                        buffer.clear();
+                    } else {
+                        // no data received
+                        System.out.println("No data received");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
 
             }
-            System.out.println("UDP Socket closed.");
-            socket.close();
+            System.out.println("DatagramChannel closed.");
+            channel.close();
             
 
             System.out.println("Executor Service shutdown");
             executorService.shutdown();
 
-            for (Future<?> f: futures) {
-                f.get();
-            }
+            // for (Future<?> f: futures) {
+            //     f.get();
+            // }
         } catch(Exception e) {
             e.printStackTrace();
         }
@@ -94,13 +93,10 @@ public class UDPServer {
         System.out.println("Entered shutdownUDPServerAfterSetDuration.");
         // surround with try catch, poll the datagram socket, 
         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
-        scheduledExecutorService.schedule(new Runnable() {
-            @Override
-            public void run() {
-                // shut down the executorService after 5 minutes, all work should be done now
-                continue_polling.set(false);
-                System.out.println("UDP Server down after 5 minutes.");
-            }
+        scheduledExecutorService.schedule(() -> {
+            // shut down the executorService after x minutes, all work should be done now
+            continuePolling.set(false);
+            System.out.println("UDP Server down after " + minutes + " minutes.");
         }, minutes, TimeUnit.MINUTES);
         scheduledExecutorService.shutdown();
         System.out.println("Scheduled Executor Service shutdown.");
