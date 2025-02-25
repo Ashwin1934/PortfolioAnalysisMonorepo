@@ -6,22 +6,26 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class UDPServer {
 
-    private static int UDP_PORT = 5005;
-    private static final int numProcessors = Runtime.getRuntime().availableProcessors();
+    private static final int UDP_PORT = 5005;
+    private static final int NUM_PROCESSORS = Runtime.getRuntime().availableProcessors();
     private static AtomicBoolean continuePolling = new AtomicBoolean(true);
+    private static AtomicInteger messagesConsumed = new AtomicInteger(0);
+    private static final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
 
 
     public static void main(String[] args) {
-        shutdownUDPServerAfterSetDuration(15);
+        shutdownUDPServerAfterSetDuration(1);
         launchUDPServer();
 
     }
@@ -30,11 +34,11 @@ public class UDPServer {
         System.out.println("UDP server up and listening on 127.0.0.1:5005");
         try {
 
-            ExecutorService executorService = launchExecutorService(numProcessors);
+            ExecutorService executorService = launchExecutorService(NUM_PROCESSORS);
             List<Future<?>> futures = new ArrayList<>();
 
             DatagramChannel channel = DatagramChannel.open();
-            channel.bind(new InetSocketAddress(UDP_PORT));
+            channel.bind(new InetSocketAddress("localhost", UDP_PORT));
             channel.configureBlocking(false);
             ByteBuffer buffer = ByteBuffer.allocate(200);
 
@@ -51,24 +55,34 @@ public class UDPServer {
                         byte[] data = new byte[buffer.remaining()];
                         buffer.get(data);
 
-                        System.out.println("Received message from "+ senderAddress + ":" + new String(data));
+                        messagesConsumed.incrementAndGet();
+
+                        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                            System.out.println("Received message from "+ senderAddress + ":" + new String(data));
+                            System.out.println("Message " + messagesConsumed.get() + " handled by thread: " + Thread.currentThread().getName());
+                        }, executorService);
 
                         buffer.clear();
                     } else {
                         // no data received
-                        System.out.println("No data received");
+                        // System.out.println("No data received");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
 
             }
+            System.out.println("Messages consumed: " + messagesConsumed.get());
+
+            /**
+             * Initiate shutdown of sockets and executors.
+             */
             System.out.println("DatagramChannel closed.");
             channel.close();
-            
-
             System.out.println("Executor Service shutdown");
             executorService.shutdown();
+            System.out.println("Scheduled Executor Service shutdown.");
+            scheduledExecutorService.shutdown();
 
             // for (Future<?> f: futures) {
             //     f.get();
@@ -91,14 +105,10 @@ public class UDPServer {
 
     private static void shutdownUDPServerAfterSetDuration(int minutes) {
         System.out.println("Entered shutdownUDPServerAfterSetDuration.");
-        // surround with try catch, poll the datagram socket, 
-        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
         scheduledExecutorService.schedule(() -> {
             // shut down the executorService after x minutes, all work should be done now
             continuePolling.set(false);
             System.out.println("UDP Server down after " + minutes + " minutes.");
         }, minutes, TimeUnit.MINUTES);
-        scheduledExecutorService.shutdown();
-        System.out.println("Scheduled Executor Service shutdown.");
     }
 }
