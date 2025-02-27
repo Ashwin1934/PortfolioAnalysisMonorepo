@@ -1,6 +1,7 @@
 package SocketTesting;
 
 import Config.ConfigLoader;
+import Valuation.ComputeValuation;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -58,10 +59,10 @@ public class UDPServer {
 
                         messagesConsumed.incrementAndGet();
 
-                        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                            System.out.println("Received message from "+ senderAddress + ":" + new String(data));
-                            System.out.println("Message " + messagesConsumed.get() + " handled by thread: " + Thread.currentThread().getName());
-                        }, executorService);
+                        System.out.println("Received message number " + messagesConsumed.get() + " from "+ senderAddress);
+                        CompletableFuture.runAsync(
+                            new ComputeValuation(new String(data), messagesConsumed.get())
+                        );
 
                         buffer.clear();
                     } else {
