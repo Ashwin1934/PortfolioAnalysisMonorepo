@@ -1,6 +1,7 @@
 import requests
 import yfinance as yf
 import json
+import configparser
 
 
 def delivery_report(err, msg):
@@ -47,7 +48,10 @@ def fetch_updated_yahoo_finance_data():
 
 # Main function
 def main():
-    api_url = "https://api.polygon.io/v2/reference/news?ticker=AAPL&limit=10&apiKey=K_BzBMJ_P99kHEvLjB2cC8lQuEruCpUE"
+    config = configparser.ConfigParser()
+    config.read("Config/config.properties")
+    api_key = config['DEFAULT']['polygon.apikey']
+    api_url = "https://api.polygon.io/v2/reference/news?ticker=AAPL&limit=10&apiKey=" + api_key
     
     
     # Pull data from the API
