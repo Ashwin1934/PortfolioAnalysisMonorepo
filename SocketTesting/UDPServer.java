@@ -1,5 +1,6 @@
 package SocketTesting;
 
+import Config.ConfigLoader;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -17,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class UDPServer {
 
-    private static final int UDP_PORT = 5005;
+    private static final int UDP_PORT = Integer.parseInt(ConfigLoader.getInstance().getProperty("udp_server.port"));
     private static final int NUM_PROCESSORS = Runtime.getRuntime().availableProcessors();
     private static AtomicBoolean continuePolling = new AtomicBoolean(true);
     private static AtomicInteger messagesConsumed = new AtomicInteger(0);
@@ -31,7 +32,7 @@ public class UDPServer {
     }
 
     static void launchUDPServer() {
-        System.out.println("UDP server up and listening on 127.0.0.1:5005");
+        System.out.println("UDP server up and listening on 127.0.0.1:" + UDP_PORT);
         try {
 
             ExecutorService executorService = launchExecutorService(NUM_PROCESSORS);
