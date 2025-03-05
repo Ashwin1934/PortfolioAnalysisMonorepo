@@ -33,7 +33,7 @@ public class UDPServer {
     }
 
     static void launchUDPServer() {
-        System.out.println("UDP server up and listening on 127.0.0.1:" + UDP_PORT);
+        System.out.println("UDP server up and listening on 127.0.0.1: " + UDP_PORT);
         try {
 
             ExecutorService executorService = launchExecutorService(NUM_PROCESSORS);

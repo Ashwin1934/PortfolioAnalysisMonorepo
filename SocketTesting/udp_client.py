@@ -36,6 +36,7 @@ def instantiate_udp_socket():
 def send_data_to_server(socket, byte_data):
     try:
         socket.sendto(byte_data, (UDP_IP, UDP_PORT))
+        print("Sending data to socket.")
     except Exception as e:
         print("Error sending data to socket.")
         print(f"Error: {e}")
@@ -63,7 +64,7 @@ def fetch_raw_data_for_ticker(ticker):
         data = fetch_yahoo_finance_data_for_ticker(ticker)
         json_data = json.dumps(data, indent=4)
         byte_data = json_data.encode('utf-8')
-        print("Size of raw_bytes:", len(byte_data), "bytes")
+        print("Size of" + ticker + " data:", len(byte_data), "bytes")
         return byte_data
     except Exception as e:
         print(f"Error: {e}")
