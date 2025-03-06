@@ -2,6 +2,7 @@ import requests
 import yfinance as yf
 import json
 import configparser
+import pandas as pd
 
 
 def delivery_report(err, msg):
@@ -38,7 +39,12 @@ def fetch_yahoo_finance_data():
 def fetch_updated_yahoo_finance_data():
     stock = yf.Ticker("FSLR")
     print(type(stock))
-    print(stock.info)
+    #print(stock.info)
+    print('growth estimates')
+    growth = stock.growth_estimates
+    print(growth)
+    print(type(growth))
+    print(growth.loc["+1y", "stockTrend"])
     stock_info = stock.info
     ttm_eps = stock_info.get('trailingEps', 'N/A')
     avg_price_target = stock_info.get('targetMeanPrice', 'N/A')
@@ -48,10 +54,10 @@ def fetch_updated_yahoo_finance_data():
 
 # Main function
 def main():
-    config = configparser.ConfigParser()
-    config.read("Config/config.properties")
-    api_key = config['DEFAULT']['polygon.apikey']
-    api_url = "https://api.polygon.io/v2/reference/news?ticker=AAPL&limit=10&apiKey=" + api_key
+    # config = configparser.ConfigParser()
+    # config.read("Config/config.properties")
+    # api_key = config['DEFAULT']['polygon.apikey']
+    # api_url = "https://api.polygon.io/v2/reference/news?ticker=AAPL&limit=10&apiKey=" + api_key
     
     
     # Pull data from the API

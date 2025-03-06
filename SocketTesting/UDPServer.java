@@ -1,6 +1,7 @@
 package SocketTesting;
 
 import Config.ConfigLoader;
+import Valuation.ComputeValuation;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -32,7 +33,7 @@ public class UDPServer {
     }
 
     static void launchUDPServer() {
-        System.out.println("UDP server up and listening on 127.0.0.1:" + UDP_PORT);
+        System.out.println("UDP server up and listening on 127.0.0.1: " + UDP_PORT);
         try {
 
             ExecutorService executorService = launchExecutorService(NUM_PROCESSORS);
@@ -58,10 +59,14 @@ public class UDPServer {
 
                         messagesConsumed.incrementAndGet();
 
-                        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                            System.out.println("Received message from "+ senderAddress + ":" + new String(data));
-                            System.out.println("Message " + messagesConsumed.get() + " handled by thread: " + Thread.currentThread().getName());
-                        }, executorService);
+                        System.out.println("Received message number " + messagesConsumed.get() + " from "+ senderAddress);
+                        CompletableFuture.runAsync(
+                            new ComputeValuation(new String(data), messagesConsumed.get())
+                        ); // note this is currently running with one thread
+                        // CompletableFuture.runAsync(
+                        //     new ComputeValuation(new String(data), messagesConsumed.get()),
+                        //     executorService
+                        // ); // run with 8 threads
 
                         buffer.clear();
                     } else {
