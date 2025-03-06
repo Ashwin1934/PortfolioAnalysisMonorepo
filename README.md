@@ -17,8 +17,24 @@ to a google sheet where I can see all the valuations with some cell formatting p
 The underlying valuation technique is not a DCF or anything super complex -- it's a simple formula
 adapted from Ben Graham's Intelligent Investor. It attempts to come up with a valuation of a stock,
 or more so a price estimate that could be compared with the actual market price to make an investment
-decision. TODO finish this section and include image of the formula... comment on how this is speculative,
-and even the future growth estimates hold more predictive power than I could ever have...
+decision. 
+
+![Alt text](Images/ValuationFormula.png)
+
+The formula is comprised of:
+* EPS 
+    * Trailing twelve month earnings per share. Note that these numbers are reported in GAAP/ non GAAP formats depending on the source.
+* PE ratio no growth
+    * I took this to mean the acceptable PE ratio for a company with no growth prospects. In Ben Graham's original 
+    formula this value was 8.5 but I corrected this to 7.
+* g - Growth rate
+    * Obviously no one can really predict the growth rate, but the numbers from Wall Street are better than any number the layman comes up with.
+* Y - 20 Year Corporate Bond Yield
+    * TODO: double check why this is used in the formula.
+    * https://fred.stlouisfed.org/series/AAA
+
+Disclaimer:
+I understand that valuation isn't a sure fire investment technique. A stock could be under valued as per this formula and drop the next day. But as much as valuation can be used to decide to buy a stock, it could also be used to decide when NOT to buy a stock. For example, some companies with negative earnings per share aren't even profitable. Obviously, that same company could be on the way to profitability but you'll at least have an idea of the current company state...
 
 #### Custom Server Construction
 I got an old server from work with no OS and no hard disk, but thought it might be a useful exercise to construct a server myself.
