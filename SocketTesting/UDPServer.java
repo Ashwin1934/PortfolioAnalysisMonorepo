@@ -62,7 +62,11 @@ public class UDPServer {
                         System.out.println("Received message number " + messagesConsumed.get() + " from "+ senderAddress);
                         CompletableFuture.runAsync(
                             new ComputeValuation(new String(data), messagesConsumed.get())
-                        );
+                        ); // note this is currently running with one thread
+                        // CompletableFuture.runAsync(
+                        //     new ComputeValuation(new String(data), messagesConsumed.get()),
+                        //     executorService
+                        // ); // run with 8 threads
 
                         buffer.clear();
                     } else {
