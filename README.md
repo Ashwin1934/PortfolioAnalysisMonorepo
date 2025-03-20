@@ -46,6 +46,28 @@ hard drive wasn't getting recognized, maybe because I touched it or shifted the 
 I then had to resort to installing a SATA compatible hard drive and the OS. For the former I purchased a 1 TB Kingston hard drive. For the latter
 I created a bootable USB drive with Windows 10 on it from an 8GB flash drive. To use the USB drive you can rearrange the ordering of the boot devices (hard drive, USB drive, etc). You also use the UEFI boot option to boot the system from a hard drive or USB drive. After this, I successfully had the server up and just needed to run/install Kafka on it and open up the port to make it accessible on the local network.
 
+##### Kafka Broker Setup and Port Opening on Local Subnet
+
+curl -vvv 127.0.0.1:9092
+*   Trying 127.0.0.1:9092...
+* Connected to 127.0.0.1 (127.0.0.1) port 9092
+> GET / HTTP/1.1
+> Host: 127.0.0.1:9092
+> User-Agent: curl/8.7.1
+> Accept: */*
+>
+* Request completely sent off
+* Empty reply from server
+* Closing connection
+curl: (52) Empty reply from server
+
+curl -vvv 127.0.0.1:9092
+*   Trying 127.0.0.1:9092...
+* connect to 127.0.0.1 port 9092 from 0.0.0.0 port 61519 failed: Connection timed out
+* Failed to connect to 127.0.0.1 port 9092 after 21036 ms: Couldn't connect to server
+* Closing connection
+curl: (28) Failed to connect to 127.0.0.1 port 9092 after 21036 ms: Couldn't connect to server
+
 
 #### Architecture
 TODO provide architecture diagram and description
