@@ -3,6 +3,9 @@ package Valuation;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+
+import KafkaPublishing.KafkaMessagePublisher;
+
 import org.ietf.jgss.GSSContext;
 
 
@@ -48,6 +51,9 @@ public class ComputeValuation implements Runnable {
 
             // add the valuation to the existing JSONObject and send that to the message queue
             jsonData.add("Valuation", this.gson.toJsonTree(valuation));
+            // jsonData.toString();
+            KafkaMessagePublisher.getInstance().publishMessage(jsonData.toString());
+            System.out.println("Published kafka message");
         } catch (Exception e) {
             e.printStackTrace();
         }

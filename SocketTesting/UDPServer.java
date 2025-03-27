@@ -1,6 +1,7 @@
 package SocketTesting;
 
 import Config.ConfigLoader;
+import KafkaPublishing.KafkaMessagePublisher;
 import Valuation.ComputeValuation;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -89,6 +90,8 @@ public class UDPServer {
             executorService.shutdown();
             System.out.println("Scheduled Executor Service shutdown.");
             scheduledExecutorService.shutdown();
+            System.out.println("KafkaMessagePublisher shutdown");
+            KafkaMessagePublisher.getInstance().shutdownKafkaProducer();
 
             // for (Future<?> f: futures) {
             //     f.get();
