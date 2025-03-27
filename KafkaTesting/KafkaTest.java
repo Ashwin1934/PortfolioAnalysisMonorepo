@@ -31,8 +31,13 @@ public class KafkaTest {
             
             String topic = "test_topic";
             String data = "stock";
-            String data2 = "stock2";
+            String data2 = "testmessage";
             ProducerRecord<String, String> record = new ProducerRecord<String, String>(topic, data, data2);
+            /**
+             * Asynchronously send a record to a topic and invoke the provided callback when the send has been acknowledged.
+             * The send is asynchronous and this method will return immediately once the record has been stored in the buffer of records waiting to be sent.
+             * This allows sending many records in parallel without blocking to wait for the response after each one.
+             */ 
             producer.send(record, new Callback() {
                 @Override
                 public void onCompletion(RecordMetadata metadata, Exception exception) {
