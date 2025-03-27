@@ -4,6 +4,7 @@
     ],
     "java.project.referencedLibraries": [
         "libs/gson-2.12.1.jar",
-        "libs/kafka-clients-3.9.0.jar"
+        "libs/kafka-clients-3.9.0.jar",
+        "libs/slf4j-api-2.0.17.jar"
     ],
 }
