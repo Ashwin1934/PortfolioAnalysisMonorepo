@@ -1,12 +1,11 @@
 package Valuation;
 
+import KafkaPublishing.KafkaMessagePublisher;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import KafkaPublishing.KafkaMessagePublisher;
-
-import org.ietf.jgss.GSSContext;
 
 
 public class ComputeValuation implements Runnable {
@@ -18,10 +17,12 @@ public class ComputeValuation implements Runnable {
     private final double GROWTH_RATE_COEFFICIENT = 1.5;
     private final double BOND_YIELD_CONSTANT = 4.4;
     private final double TWENTY_YEAR_CORPORATE_BOND_YIELD = 5.32; // as of Feb 2025
+    // private final KafkaMessagePublisher publisher;
 
     public ComputeValuation(String jsonData, int messageNumber) {
         this.jsonData = getJsonObject(jsonData);
         this.messageNumber = messageNumber;
+        // this.publisher = KafkaMessagePublisher.getInstance();
     }
 
     @Override
@@ -52,8 +53,9 @@ public class ComputeValuation implements Runnable {
             // add the valuation to the existing JSONObject and send that to the message queue
             jsonData.add("Valuation", this.gson.toJsonTree(valuation));
             // jsonData.toString();
-            KafkaMessagePublisher.getInstance().publishMessage(jsonData.toString());
-            System.out.println("Published kafka message");
+            KafkaMessagePublisher.getInstance().publishMessage(jsonData.toString(), ticker, messageNumber);
+            //this.publisher.publishMessage(jsonData.toString(), messageNumber);
+            System.out.println("ComputeValuation: message " + messageNumber + " processed by KafkaMessagePublisher for: " + ticker);
         } catch (Exception e) {
             e.printStackTrace();
         }
