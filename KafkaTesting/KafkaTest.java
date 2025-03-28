@@ -47,6 +47,10 @@ public class KafkaTest {
                                 data, data2, metadata.partition(), metadata.offset());
                     } else {
                         System.err.println("Error sending message: " + exception.getMessage());
+                        /**
+                         * Sample Error Message.
+                         * Error sending message: Topic test_topic not present in metadata after 60000 ms.
+                         */
                     }
                     
                 }

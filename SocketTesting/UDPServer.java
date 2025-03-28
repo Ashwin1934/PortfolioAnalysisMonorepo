@@ -28,7 +28,7 @@ public class UDPServer {
 
 
     public static void main(String[] args) {
-        shutdownUDPServerAfterSetDuration(1);
+        shutdownUDPServerAfterSetDuration(3);
         launchUDPServer();
 
     }
@@ -63,11 +63,11 @@ public class UDPServer {
                         System.out.println("Received message number " + messagesConsumed.get() + " from "+ senderAddress);
                         CompletableFuture.runAsync(
                             new ComputeValuation(new String(data), messagesConsumed.get())
-                        ); // note this is currently running with one thread
-                        // CompletableFuture.runAsync(
-                        //     new ComputeValuation(new String(data), messagesConsumed.get()),
-                        //     executorService
-                        // ); // run with 8 threads
+                        ); // note this is currently running with built in thread pool
+                        CompletableFuture.runAsync(
+                            new ComputeValuation(new String(data), messagesConsumed.get()),
+                            executorService
+                        ); // run with 8 threads
 
                         buffer.clear();
                     } else {
@@ -90,7 +90,6 @@ public class UDPServer {
             executorService.shutdown();
             System.out.println("Scheduled Executor Service shutdown.");
             scheduledExecutorService.shutdown();
-            System.out.println("KafkaMessagePublisher shutdown");
             KafkaMessagePublisher.getInstance().shutdownKafkaProducer();
 
             // for (Future<?> f: futures) {
