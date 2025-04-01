@@ -28,12 +28,14 @@ public class UDPServer {
 
 
     public static void main(String[] args) {
-        shutdownUDPServerAfterSetDuration(3);
+        shutdownUDPServerAfterSetDuration(1);
         launchUDPServer();
 
     }
 
     static void launchUDPServer() {
+        long startTime = System.currentTimeMillis();
+        System.out.println("Start time MS: " + startTime);
         System.out.println("UDP server up and listening on 127.0.0.1: " + UDP_PORT);
         try {
 
@@ -61,9 +63,9 @@ public class UDPServer {
                         messagesConsumed.incrementAndGet();
 
                         System.out.println("Received message number " + messagesConsumed.get() + " from "+ senderAddress);
-                        CompletableFuture.runAsync(
-                            new ComputeValuation(new String(data), messagesConsumed.get())
-                        ); // note this is currently running with built in thread pool
+                        // CompletableFuture.runAsync(
+                        //     new ComputeValuation(new String(data), messagesConsumed.get())
+                        // ); // note this is currently running with built in thread pool
                         CompletableFuture.runAsync(
                             new ComputeValuation(new String(data), messagesConsumed.get()),
                             executorService
@@ -92,9 +94,6 @@ public class UDPServer {
             scheduledExecutorService.shutdown();
             KafkaMessagePublisher.getInstance().shutdownKafkaProducer();
 
-            // for (Future<?> f: futures) {
-            //     f.get();
-            // }
         } catch(Exception e) {
             e.printStackTrace();
         }

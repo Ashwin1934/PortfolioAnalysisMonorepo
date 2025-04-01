@@ -80,3 +80,329 @@ TODO provide architecture diagram and description
 
 ##### UDP Client
 A Python client that leverages the yfinance 
+
+#### Execution Times
+Execution times for publishing all messages to Kafka in different scenarios.
+
+##### Publish Messages with broker down, built in thread pool
+Use CompletableFuture's built in thread pool. Uses ForkJoinPool.commonPool() as the underlying thread pool.
+
+| Description        | Execution Time | Number of Tickers | Temp |
+|--------------------|---------------|-------------------|------|
+| Publish messages with broker down        | **12194 ms**          | 23               | 23 |
+
+###### Sample Output
+```
+Entered shutdownUDPServerAfterSetDuration.
+Start time MS: 1743473984225
+UDP server up and listening on 127.0.0.1: 5005
+Received message number 1 from /127.0.0.1:55798
+Message 1 for ticker: AMD handled by thread: ForkJoinPool.commonPool-worker-1
+Received message number 2 from /127.0.0.1:55798
+Valuation for ticker: AMD: 2.2379323364661654
+Message 2 for ticker: AMZN handled by thread: ForkJoinPool.commonPool-worker-2
+Valuation for ticker: AMZN: 8.421918217462405
+Creating kafka publisher
+SLF4J(W): No SLF4J providers were found.
+SLF4J(W): Defaulting to no-operation (NOP) logger implementation
+SLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.
+Received message number 3 from /127.0.0.1:55798
+Message 3 for ticker: DELL handled by thread: ForkJoinPool.commonPool-worker-3
+Valuation for ticker: DELL: 9.32756766917293
+Received message number 4 from /127.0.0.1:55798
+Message 4 for ticker: INTC handled by thread: ForkJoinPool.commonPool-worker-4
+Valuation for ticker: INTC: -6.546110714285715
+Received message number 5 from /127.0.0.1:55798
+Message 5 for ticker: LCID handled by thread: ForkJoinPool.commonPool-worker-5
+Valuation for ticker: LCID: -1.0118202141541353
+Received message number 6 from /127.0.0.1:55798
+Message 6 for ticker: MTH handled by thread: ForkJoinPool.commonPool-worker-6
+Valuation for ticker: MTH: 15.50319172932331
+Publishing kafka message: 4 for ticker: INTC
+Publishing kafka message: 6 for ticker: MTH
+Publishing kafka message: 1 for ticker: AMD
+Publishing kafka message: 2 for ticker: AMZN
+Publishing kafka message: 5 for ticker: LCID
+Publishing kafka message: 3 for ticker: DELL
+Error sending message 4 for ticker INTC at currentTimeMS 1743473992344: Topic test_topic not present in metadata after 100 ms.
+Error sending message 1 for ticker AMD at currentTimeMS 1743473992344: Topic test_topic not present in metadata after 100 ms.
+Error sending message 5 for ticker LCID at currentTimeMS 1743473992334: Topic test_topic not present in metadata after 100 ms.      
+Error sending message 3 for ticker DELL at currentTimeMS 1743473992350: Topic test_topic not present in metadata after 100 ms.      
+Error sending message 2 for ticker AMZN at currentTimeMS 1743473992350: Topic test_topic not present in metadata after 100 ms.      
+Error sending message 6 for ticker MTH at currentTimeMS 1743473992351: Topic test_topic not present in metadata after 100 ms.       
+Received message number 7 from /127.0.0.1:55798
+Message 7 for ticker: MCHP handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: MCHP: 1.5717801694943607
+Publishing kafka message: 7 for ticker: MCHP
+Error sending message 7 for ticker MCHP at currentTimeMS 1743473992539: Topic test_topic not present in metadata after 100 ms.
+Received message number 8 from /127.0.0.1:55798
+ComputeValuation: message 5 processed by KafkaMessagePublisher for: LCID
+ComputeValuation: message 3 processed by KafkaMessagePublisher for: DELL
+ComputeValuation: message 1 processed by KafkaMessagePublisher for: AMD
+ComputeValuation: message 4 processed by KafkaMessagePublisher for: INTC
+ComputeValuation: message 6 processed by KafkaMessagePublisher for: MTH
+ComputeValuation: message 2 processed by KafkaMessagePublisher for: AMZN
+ComputeValuation: message 7 processed by KafkaMessagePublisher for: MCHP
+Message 8 for ticker: PYPL handled by thread: ForkJoinPool.commonPool-worker-5
+Valuation for ticker: PYPL: 6.210492664672932
+Publishing kafka message: 8 for ticker: PYPL
+Received message number 9 from /127.0.0.1:55798
+Message 9 for ticker: PBR handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: PBR: 2.3486736838834585
+Publishing kafka message: 9 for ticker: PBR
+Error sending message 8 for ticker PYPL at currentTimeMS 1743473992954: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 8 processed by KafkaMessagePublisher for: PYPL
+Error sending message 9 for ticker PBR at currentTimeMS 1743473993032: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 9 processed by KafkaMessagePublisher for: PBR
+Received message number 10 from /127.0.0.1:55798
+Message 10 for ticker: PONY handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: PONY: -2.3336015037593985
+Publishing kafka message: 10 for ticker: PONY
+Error sending message 10 for ticker PONY at currentTimeMS 1743473993248: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 10 processed by KafkaMessagePublisher for: PONY
+Received message number 11 from /127.0.0.1:55798
+Message 11 for ticker: IOT handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: IOT: 0.43132293233082714
+Publishing kafka message: 11 for ticker: IOT
+Error sending message 11 for ticker IOT at currentTimeMS 1743473993517: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 11 processed by KafkaMessagePublisher for: IOT
+Received message number 12 from /127.0.0.1:55798
+Message 12 for ticker: SNOW handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: SNOW: -4.6517379916917285
+Publishing kafka message: 12 for ticker: SNOW
+Error sending message 12 for ticker SNOW at currentTimeMS 1743473993744: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 12 processed by KafkaMessagePublisher for: SNOW
+Received message number 13 from /127.0.0.1:55798
+Message 13 for ticker: TGT handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: TGT: 12.673820300751878
+Publishing kafka message: 13 for ticker: TGT
+Error sending message 13 for ticker TGT at currentTimeMS 1743473993958: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 13 processed by KafkaMessagePublisher for: TGT
+Received message number 14 from /127.0.0.1:55798
+Message 14 for ticker: WMT handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: WMT: 4.079729605263158
+Publishing kafka message: 14 for ticker: WMT
+Error sending message 14 for ticker WMT at currentTimeMS 1743473994183: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 14 processed by KafkaMessagePublisher for: WMT
+Received message number 15 from /127.0.0.1:55798
+Message 15 for ticker: BAC handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: BAC: 5.211945761625939
+Publishing kafka message: 15 for ticker: BAC
+Error sending message 15 for ticker BAC at currentTimeMS 1743473994433: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 15 processed by KafkaMessagePublisher for: BAC
+Received message number 16 from /127.0.0.1:55798
+Message 16 for ticker: AI handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: AI: -2.1360657894736836
+Publishing kafka message: 16 for ticker: AI
+Error sending message 16 for ticker AI at currentTimeMS 1743473994715: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 16 processed by KafkaMessagePublisher for: AI
+Received message number 17 from /127.0.0.1:55798
+Message 17 for ticker: ENPH handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: ENPH: 1.8652960505169172
+Publishing kafka message: 17 for ticker: ENPH
+Error sending message 17 for ticker ENPH at currentTimeMS 1743473994974: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 17 processed by KafkaMessagePublisher for: ENPH
+Received message number 18 from /127.0.0.1:55798
+Message 18 for ticker: FSLR handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: FSLR: 18.142871736729322
+Publishing kafka message: 18 for ticker: FSLR
+Error sending message 18 for ticker FSLR at currentTimeMS 1743473995216: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 18 processed by KafkaMessagePublisher for: FSLR
+Received message number 19 from /127.0.0.1:55798
+Message 19 for ticker: JPM handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: JPM: 27.209837898214285
+Publishing kafka message: 19 for ticker: JPM
+Error sending message 19 for ticker JPM at currentTimeMS 1743473995434: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 19 processed by KafkaMessagePublisher for: JPM
+Received message number 20 from /127.0.0.1:55798
+Message 20 for ticker: PLTR handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: PLTR: 1.090444454887218
+Publishing kafka message: 20 for ticker: PLTR
+Error sending message 20 for ticker PLTR at currentTimeMS 1743473995700: Topic test_topic not present in metadata after 100 ms.     
+ComputeValuation: message 20 processed by KafkaMessagePublisher for: PLTR
+Received message number 21 from /127.0.0.1:55798
+Message 21 for ticker: GOOG handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: GOOG: 11.736028195488721
+Publishing kafka message: 21 for ticker: GOOG
+Error sending message 21 for ticker GOOG at currentTimeMS 1743473995927: Topic test_topic not present in metadata after 100 ms.     
+ComputeValuation: message 21 processed by KafkaMessagePublisher for: GOOG
+Received message number 22 from /127.0.0.1:55798
+Message 22 for ticker: AAPL handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: AAPL: 9.347821247718043
+Publishing kafka message: 22 for ticker: AAPL
+Error sending message 22 for ticker AAPL at currentTimeMS 1743473996177: Topic test_topic not present in metadata after 100 ms.     
+ComputeValuation: message 22 processed by KafkaMessagePublisher for: AAPL
+Received message number 23 from /127.0.0.1:55798
+Message 23 for ticker: SMCI handled by thread: ForkJoinPool.commonPool-worker-7
+Valuation for ticker: SMCI: 4.119396616541352
+Publishing kafka message: 23 for ticker: SMCI
+Error sending message 23 for ticker SMCI at currentTimeMS 1743473996419: Topic test_topic not present in metadata after 100 ms.     
+ComputeValuation: message 23 processed by KafkaMessagePublisher for: SMCI
+Messages consumed: 23
+DatagramChannel closed.
+UDP Server down after 1 minutes.
+Executor Service shutdown
+Scheduled Executor Service shutdown.
+KafkaMessagePublisher shutdown
+```
+
+##### Publish Messages with broker down, custom 8 thread pool
+
+| Description        | Execution Time | Number of Tickers | Temp |
+|--------------------|---------------|-------------------|------|
+| Publish messages with broker down        | **11720**         | 23              | 38°C |
+
+######
+```
+Entered shutdownUDPServerAfterSetDuration.
+Start time MS: 1743474307121
+UDP server up and listening on 127.0.0.1: 5005
+Received message number 1 from /127.0.0.1:54438
+Message 1 for ticker: AMD handled by thread: pool-2-thread-1
+Valuation for ticker: AMD: 2.2379323364661654
+Received message number 2 from /127.0.0.1:54438
+Message 2 for ticker: AMZN handled by thread: pool-2-thread-2
+Valuation for ticker: AMZN: 8.421918217462405
+Creating kafka publisher
+SLF4J(W): No SLF4J providers were found.
+SLF4J(W): Defaulting to no-operation (NOP) logger implementation
+SLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.
+Received message number 3 from /127.0.0.1:54438
+Message 3 for ticker: DELL handled by thread: pool-2-thread-3
+Valuation for ticker: DELL: 9.32756766917293
+Received message number 4 from /127.0.0.1:54438
+Message 4 for ticker: INTC handled by thread: pool-2-thread-4
+Valuation for ticker: INTC: -6.546110714285715
+Received message number 5 from /127.0.0.1:54438
+Message 5 for ticker: LCID handled by thread: pool-2-thread-5
+Valuation for ticker: LCID: -1.0118202141541353
+Publishing kafka message: 3 for ticker: DELL
+Publishing kafka message: 4 for ticker: INTC
+Publishing kafka message: 1 for ticker: AMD
+Publishing kafka message: 2 for ticker: AMZN
+Publishing kafka message: 5 for ticker: LCID
+Error sending message 2 for ticker AMZN at currentTimeMS 1743474314168: Topic test_topic not present in metadata after 100 ms.
+Error sending message 5 for ticker LCID at currentTimeMS 1743474314167: Topic test_topic not present in metadata after 100 ms.
+Error sending message 4 for ticker INTC at currentTimeMS 1743474314168: Topic test_topic not present in metadata after 100 ms.      
+Error sending message 3 for ticker DELL at currentTimeMS 1743474314168: Topic test_topic not present in metadata after 100 ms.      
+Error sending message 1 for ticker AMD at currentTimeMS 1743474314168: Topic test_topic not present in metadata after 100 ms.       
+Received message number 6 from /127.0.0.1:54438
+Message 6 for ticker: MTH handled by thread: pool-2-thread-6
+Valuation for ticker: MTH: 15.50319172932331
+Publishing kafka message: 6 for ticker: MTH
+Error sending message 6 for ticker MTH at currentTimeMS 1743474314345: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 6 processed by KafkaMessagePublisher for: MTH
+ComputeValuation: message 1 processed by KafkaMessagePublisher for: AMD
+ComputeValuation: message 2 processed by KafkaMessagePublisher for: AMZN
+ComputeValuation: message 3 processed by KafkaMessagePublisher for: DELL
+ComputeValuation: message 4 processed by KafkaMessagePublisher for: INTC
+ComputeValuation: message 5 processed by KafkaMessagePublisher for: LCID
+Received message number 7 from /127.0.0.1:54438
+Message 7 for ticker: MCHP handled by thread: pool-2-thread-7
+Valuation for ticker: MCHP: 1.5717801694943607
+Publishing kafka message: 7 for ticker: MCHP
+Error sending message 7 for ticker MCHP at currentTimeMS 1743474314672: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 7 processed by KafkaMessagePublisher for: MCHP
+Received message number 8 from /127.0.0.1:54438
+Message 8 for ticker: PYPL handled by thread: pool-2-thread-8
+Valuation for ticker: PYPL: 6.210492664672932
+Publishing kafka message: 8 for ticker: PYPL
+Error sending message 8 for ticker PYPL at currentTimeMS 1743474314923: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 8 processed by KafkaMessagePublisher for: PYPL
+Received message number 9 from /127.0.0.1:54438
+Message 9 for ticker: PBR handled by thread: pool-2-thread-6
+Valuation for ticker: PBR: 2.3486736838834585
+Publishing kafka message: 9 for ticker: PBR
+Error sending message 9 for ticker PBR at currentTimeMS 1743474315160: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 9 processed by KafkaMessagePublisher for: PBR
+Received message number 10 from /127.0.0.1:54438
+Message 10 for ticker: PONY handled by thread: pool-2-thread-1
+Valuation for ticker: PONY: -2.3336015037593985
+Publishing kafka message: 10 for ticker: PONY
+Error sending message 10 for ticker PONY at currentTimeMS 1743474315538: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 10 processed by KafkaMessagePublisher for: PONY
+Received message number 11 from /127.0.0.1:54438
+Message 11 for ticker: IOT handled by thread: pool-2-thread-2
+Valuation for ticker: IOT: 0.43132293233082714
+Publishing kafka message: 11 for ticker: IOT
+Error sending message 11 for ticker IOT at currentTimeMS 1743474315789: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 11 processed by KafkaMessagePublisher for: IOT
+Received message number 12 from /127.0.0.1:54438
+Message 12 for ticker: SNOW handled by thread: pool-2-thread-3
+Valuation for ticker: SNOW: -4.6517379916917285
+Publishing kafka message: 12 for ticker: SNOW
+Error sending message 12 for ticker SNOW at currentTimeMS 1743474316028: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 12 processed by KafkaMessagePublisher for: SNOW
+Received message number 13 from /127.0.0.1:54438
+Message 13 for ticker: TGT handled by thread: pool-2-thread-4
+Valuation for ticker: TGT: 12.673820300751878
+Publishing kafka message: 13 for ticker: TGT
+Error sending message 13 for ticker TGT at currentTimeMS 1743474316249: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 13 processed by KafkaMessagePublisher for: TGT
+Received message number 14 from /127.0.0.1:54438
+Message 14 for ticker: WMT handled by thread: pool-2-thread-5
+Valuation for ticker: WMT: 4.079729605263158
+Publishing kafka message: 14 for ticker: WMT
+Error sending message 14 for ticker WMT at currentTimeMS 1743474316469: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 14 processed by KafkaMessagePublisher for: WMT
+Received message number 15 from /127.0.0.1:54438
+Message 15 for ticker: BAC handled by thread: pool-2-thread-7
+Valuation for ticker: BAC: 5.211945761625939
+Publishing kafka message: 15 for ticker: BAC
+Error sending message 15 for ticker BAC at currentTimeMS 1743474316722: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 15 processed by KafkaMessagePublisher for: BAC
+Received message number 16 from /127.0.0.1:54438
+Message 16 for ticker: AI handled by thread: pool-2-thread-8
+Valuation for ticker: AI: -2.1360657894736836
+Publishing kafka message: 16 for ticker: AI
+Error sending message 16 for ticker AI at currentTimeMS 1743474317010: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 16 processed by KafkaMessagePublisher for: AI
+Received message number 17 from /127.0.0.1:54438
+Message 17 for ticker: ENPH handled by thread: pool-2-thread-6
+Valuation for ticker: ENPH: 1.8652960505169172
+Publishing kafka message: 17 for ticker: ENPH
+Error sending message 17 for ticker ENPH at currentTimeMS 1743474317275: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 17 processed by KafkaMessagePublisher for: ENPH
+Received message number 18 from /127.0.0.1:54438
+Message 18 for ticker: FSLR handled by thread: pool-2-thread-1
+Valuation for ticker: FSLR: 18.142871736729322
+Publishing kafka message: 18 for ticker: FSLR
+Error sending message 18 for ticker FSLR at currentTimeMS 1743474317529: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 18 processed by KafkaMessagePublisher for: FSLR
+Received message number 19 from /127.0.0.1:54438
+Message 19 for ticker: JPM handled by thread: pool-2-thread-2
+Valuation for ticker: JPM: 27.209837898214285
+Publishing kafka message: 19 for ticker: JPM
+Error sending message 19 for ticker JPM at currentTimeMS 1743474317767: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 19 processed by KafkaMessagePublisher for: JPM
+Received message number 20 from /127.0.0.1:54438
+Message 20 for ticker: PLTR handled by thread: pool-2-thread-3
+Valuation for ticker: PLTR: 1.090444454887218
+Publishing kafka message: 20 for ticker: PLTR
+Error sending message 20 for ticker PLTR at currentTimeMS 1743474318005: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 20 processed by KafkaMessagePublisher for: PLTR
+Received message number 21 from /127.0.0.1:54438
+Message 21 for ticker: GOOG handled by thread: pool-2-thread-4
+Valuation for ticker: GOOG: 11.736028195488721
+Publishing kafka message: 21 for ticker: GOOG
+Error sending message 21 for ticker GOOG at currentTimeMS 1743474318303: Topic test_topic not present in metadata after 100 ms.
+ComputeValuation: message 21 processed by KafkaMessagePublisher for: GOOG
+Received message number 22 from /127.0.0.1:54438
+Message 22 for ticker: AAPL handled by thread: pool-2-thread-5
+Valuation for ticker: AAPL: 9.347821247718043
+Publishing kafka message: 22 for ticker: AAPL
+Error sending message 22 for ticker AAPL at currentTimeMS 1743474318558: Topic test_topic not present in metadata after 100 ms.     
+ComputeValuation: message 22 processed by KafkaMessagePublisher for: AAPL
+Received message number 23 from /127.0.0.1:54438
+Message 23 for ticker: SMCI handled by thread: pool-2-thread-7
+Valuation for ticker: SMCI: 4.119396616541352
+Publishing kafka message: 23 for ticker: SMCI
+Error sending message 23 for ticker SMCI at currentTimeMS 1743474318841: Topic test_topic not present in metadata after 100 ms.     
+ComputeValuation: message 23 processed by KafkaMessagePublisher for: SMCI
+Messages consumed: 23
+DatagramChannel closed.
+UDP Server down after 1 minutes.
+Executor Service shutdown
+Scheduled Executor Service shutdown.
+KafkaMessagePublisher shutdown
+```
