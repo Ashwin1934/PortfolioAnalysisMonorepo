@@ -68,12 +68,13 @@ public class KafkaMessagePublisher {
             this.producer.send(record, new Callback() {
                 @Override
                 public void onCompletion(RecordMetadata metadata, Exception exception) {
+                    long currentTimeMillis = System.currentTimeMillis();
                     // TODO Auto-generated method stub
                     if (exception == null) {
-                        System.out.printf("Sent message with value=%s to partition=%d offset=%d%n",
-                                jsonData, metadata.partition(), metadata.offset());
+                        System.out.printf("Sent message number=%d at currentTimeMS=%d with value=%s to partition=%d offset=%d%n",
+                                messageNumber, currentTimeMillis, jsonData, metadata.partition(), metadata.offset());
                     } else {
-                        System.err.println("Error sending message " + messageNumber + " for ticker " + ticker + ": " + exception.getMessage());
+                        System.err.println("Error sending message " + messageNumber + " for ticker " + ticker + " at currentTimeMS " + currentTimeMillis + ": " + exception.getMessage());
                     }   
                 }
                 
