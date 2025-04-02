@@ -5,7 +5,7 @@ import json
 UDP_IP = "127.0.0.1"  # Server address
 UDP_PORT = 5005       # Must match the server's port
 MESSAGE = b"Hello, UDP server!"  # Note: UDP transmits bytes
-ticker_path = r"C:\Users\ashud\NewProjects\PortfolioAnalysisMonorepo\portfolioTickers"
+ticker_path = r"C:\Users\ashud\NewProjects\PortfolioAnalysisMonorepo\portfolioTickersFull"
 
 
 def process_tickers(path, socket):
