@@ -81,10 +81,10 @@ TODO provide architecture diagram and description
 ##### UDP Client
 A Python client that leverages the yfinance 
 
-#### Execution Times
+### Execution Times
 Execution times for publishing all messages to Kafka in different scenarios.
 
-##### Publish Messages with broker down, built in thread pool
+#### Publish Messages with broker down, built in thread pool
 Use CompletableFuture's built in thread pool. Uses ForkJoinPool.commonPool() as the underlying thread pool.
 
 | Description        | Execution Time | Number of Tickers | Threads |
@@ -250,7 +250,7 @@ KafkaMessagePublisher shutdown
 ```
 </details>
 
-##### Publish Messages with broker down, custom 8 thread pool
+#### Publish Messages with broker down, custom 8 thread pool
 
 | Description        | Execution Time | Number of Tickers | Threads |
 |--------------------|---------------|-------------------|------|
@@ -416,7 +416,7 @@ KafkaMessagePublisher shutdown
 
 </details>
 
-##### Publish Messages with broker down, custom 1 thread pool
+#### Publish Messages with broker down, custom 1 thread pool
 
 | Description        | Execution Time | Number of Tickers | Threads |
 |--------------------|---------------|-------------------|------|
