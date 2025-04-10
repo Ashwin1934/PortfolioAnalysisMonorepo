@@ -46,6 +46,8 @@ hard drive wasn't getting recognized, maybe because I touched it or shifted the 
 I then had to resort to installing a SATA compatible hard drive and the OS. For the former I purchased a 1 TB Kingston hard drive. For the latter
 I created a bootable USB drive with Windows 10 on it from an 8GB flash drive. To use the USB drive you can rearrange the ordering of the boot devices (hard drive, USB drive, etc). You also use the UEFI boot option to boot the system from a hard drive or USB drive. After this, I successfully had the server up and just needed to run/install Kafka on it and open up the port to make it accessible on the local network.
 
+![Alt text](Images/IMG_6505.jpg)
+
 ##### Kafka Broker Setup and Port Opening on Local Subnet
 After installing Kafka on the server, I opened the port Kafka runs on to my home network. This requires editing the
 Windows Firewall to allow incoming connections. I then pinged the server from my laptop as seen below. 
