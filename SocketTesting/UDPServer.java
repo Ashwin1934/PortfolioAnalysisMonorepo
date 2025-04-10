@@ -28,7 +28,7 @@ public class UDPServer {
 
 
     public static void main(String[] args) {
-        shutdownUDPServerAfterSetDuration(1);
+        shutdownUDPServerAfterSetDuration(1); // increase if needed
         launchUDPServer();
 
     }

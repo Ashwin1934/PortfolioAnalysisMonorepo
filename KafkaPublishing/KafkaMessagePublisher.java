@@ -41,7 +41,7 @@ public class KafkaMessagePublisher {
          */
         kafkaProperties.put("retries", 1); 
         kafkaProperties.put("request.timeout.ms", 50);
-        kafkaProperties.put("delivery.timeout.ms", 100);
+        kafkaProperties.put("delivery.timeout.ms", 100); // this can be increased if request times out before topic is found
         /**
          * Note, the above configs did nothing to deter the error message:
          * "Error sending message: Topic test_topic not present in metadata after 60000 ms"
