@@ -59,7 +59,7 @@ public class KafkaMessagePublisher {
         // no locking needed but multiple threads will access
         System.out.println("Publishing kafka message: " + messageNumber + " for ticker: " + ticker);
         try {
-            ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName, "key", "value"); 
+            ProducerRecord<String, String> record = new ProducerRecord<String, String>(topicName, "key", jsonData); 
              /**
              * Asynchronously send a record to a topic and invoke the provided callback when the send has been acknowledged.
              * The send is asynchronous and this method will return immediately once the record has been stored in the buffer of records waiting to be sent.
