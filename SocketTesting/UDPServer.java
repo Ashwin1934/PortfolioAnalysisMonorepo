@@ -28,7 +28,7 @@ public class UDPServer {
 
 
     public static void main(String[] args) {
-        shutdownUDPServerAfterSetDuration(1); // increase if needed
+        shutdownUDPServerAfterSetDuration(2); // increase if needed
         launchUDPServer();
 
     }
@@ -39,7 +39,7 @@ public class UDPServer {
         System.out.println("UDP server up and listening on 127.0.0.1: " + UDP_PORT);
         try {
 
-            ExecutorService executorService = launchExecutorService(NUM_PROCESSORS); // Test with just 1 thread
+            ExecutorService executorService = launchExecutorService(1); // Test with just 1 thread
             List<Future<?>> futures = new ArrayList<>();
 
             DatagramChannel channel = DatagramChannel.open();
