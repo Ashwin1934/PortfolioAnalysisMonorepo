@@ -1236,3 +1236,7 @@ KafkaMessagePublisher shutdown
 ```
 
 </details>
+
+## Attempt to Optimize Receiving, Processing and Publishing
+My intention was to receive messages in a single thread, and to hand off the processing to another thread(s). From the logs, it looked like
+receiving, processing, and publishing were executing as an atomic operation (see logs). I played around with many changes including CompletableFuture, multiple thread pools, different thread sizes, increasing number of tickers (to see if order gets interleaved), datagram channel buffer copy / reuse, and switching to async logging. If you look at the logs, the processing and publishing are in fact getting executed in separate threads. But for a given stock, it doesn't seem to be receiving new messages until the processing is done for the current ticker. Or at least that's what it looks like in the logs. I tried increasing the number of tickers to see if the commands get interweaved, but the operations for each ticker still seem to be atomic and serial. I was testing all this in OptimizedUDPServer. 
