@@ -590,6 +590,8 @@ KafkaMessagePublisher shutdown
 |--------------------|---------------|-------------------|------|
 | Publish messages with broker up        | **16382**         | 45              | 8  |
 
+15220
+13872
 ###### Sample Output
 <details>
 <summary>Output</summary>
@@ -941,7 +943,8 @@ Note the errors sending the first 5 messages can be quickly addressed by increas
 | Description        | Execution Time | Number of Tickers | Threads |
 |--------------------|---------------|-------------------|------|
 | Publish messages with broker up        | **18829**         | 45              | 1  |
-
+14245
+14037
 ###### Sample Output
 <details>
 <summary>Output</summary>
