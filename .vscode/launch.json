@@ -2,6 +2,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "OptimizedUDPServer",
+            "request": "launch",
+            "mainClass": "SocketTesting.OptimizedUDPServer",
+            "projectName": "PortfolioAnalysisMonorepo_e1923cfb"
+        },
+        {
+            "type": "java",
             "name": "KafkaTest",
             "request": "launch",
             "mainClass": "KafkaTesting.KafkaTest",
