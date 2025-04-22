@@ -4,7 +4,7 @@ import threading
 
 async def test_async_function(message):
     try:
-        print(f"Handling message: {threading.current_thread()}") # async io runs single threaded event loop; unlike WebFlux/Project Reactor which has a thread pool running the event loop
+        print(f"Handling message {message}: with {threading.current_thread()}") # async io runs single threaded event loop; unlike WebFlux/Project Reactor which has a thread pool running the event loop
     except Exception as e:
         print(e)
 
