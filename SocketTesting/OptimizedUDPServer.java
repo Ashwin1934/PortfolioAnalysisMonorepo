@@ -35,7 +35,6 @@ public class OptimizedUDPServer {
     private static AtomicBoolean continuePolling = new AtomicBoolean(true);
     private static AtomicInteger messagesConsumed = new AtomicInteger(0);
     private static AtomicInteger messagesSent = new AtomicInteger(0);
-    private static final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
     private static KafkaProducer<String, String> kafkaProducer = createKafkaProducer();
     private static final ExecutorService computeExecutorService = launchExecutorService(NUM_PROCESSORS);
     private static final ExecutorService ioExecutorService = launchExecutorService(NUM_PROCESSORS * 2);
@@ -44,11 +43,10 @@ public class OptimizedUDPServer {
     public static void main(String[] args) {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("Shutdown signal received. Stopping server...");
-            scheduledExecutorService.shutdown();
             computeExecutorService.shutdown();
             ioExecutorService.shutdown();
+            shutdownUDPServer();
         }));
-        // shutdownUDPServerAfterSetDuration(2); // increase if needed
         launchUDPServer();
     }
 
@@ -58,15 +56,11 @@ public class OptimizedUDPServer {
         logger.info("UDP server up and listening on 127.0.0.1: {}", UDP_PORT);
 
         try {
-            // ExecutorService executorService = launchExecutorService(16); // Test with just 1 thread
-            // KafkaProducer<String, String> producer = createKafkaProducer();
-
             DatagramChannel channel = DatagramChannel.open();
             channel.bind(new InetSocketAddress("localhost", UDP_PORT));
             channel.configureBlocking(false);
-            // ByteBuffer buffer = ByteBuffer.allocate(200);
 
-            while (true) {
+            while (continuePolling.get()) {
                 try {
                     ByteBuffer buffer = ByteBuffer.allocate(200);
                     SocketAddress senderAddress = channel.receive(buffer); // returns data if available right away otherwise null
@@ -74,56 +68,19 @@ public class OptimizedUDPServer {
                         buffer.flip();
                         byte[] dataCopy = new byte[buffer.remaining()];
                         buffer.get(dataCopy);
-                        // byte[] dataCopy = Arrays.copyOf(data, data.length);
-                        // buffer.clear();
 
-                        // messagesConsumed.incrementAndGet();
-
-                        // logger.info("Received message number {} from {}", messagesConsumed.get(), senderAddress);
                         logger.info("Received message from {}", senderAddress);
                         CompletableFuture.runAsync(() -> processMessageAsync(dataCopy), computeExecutorService);
-                        logger.info("Message getting processed asynchronously {}", senderAddress);
-                        // CompletableFuture<String> valuation = CompletableFuture.supplyAsync(
-                        //     () -> new ComputeValuationCallable(new String(data), messagesConsumed.get()).call(),
-                        //     executorService
-                        // );
+                        logger.info("Message getting processed asynchronously for {}", senderAddress);
 
-                        // valuation.thenAcceptAsync(valuationString -> {
-                        //     int messageNumber = messagesSent.incrementAndGet();
-                        //     logger.info("Valuation for message {}: {} sent by thread: {}", messageNumber, valuationString, Thread.currentThread().getName());
-                        //     ProducerRecord<String, String> record = new ProducerRecord<>("test_topic", UUID.randomUUID().toString(), valuationString);
-                        //     producer.send(record, new Callback() {
-                        //         @Override
-                        //         public void onCompletion(RecordMetadata metadata, Exception exception) {
-                        //             long currentTimeMillis = System.currentTimeMillis();
-                        //             if (exception == null) {
-                        //                 logger.info("Sent message number={} at currentTimeMS={} with value={} to partition={} offset={}",
-                        //                         messageNumber, currentTimeMillis, valuationString, metadata.partition(), metadata.offset());
-                        //             } else {
-                        //                 logger.error("Error sending message {} at currentTimeMS {}: {}", messageNumber, currentTimeMillis, exception.getMessage());
-                        //             }   
-                        //         }
-                        //     });
-                        // }, executorService);
-
-                        logger.debug("Thread active count: {}", Thread.activeCount());
-                        // buffer.clear();
+                        buffer.clear();
                     }
                 } catch (Exception e) {
                     logger.error("Error in UDP server loop", e);
                 }
             }
-
-            // logger.info("Messages consumed: {}", messagesConsumed.get());
-
-            // channel.close();
-            // logger.info("DatagramChannel closed.");
-
-            // executorService.shutdown();
-            // logger.info("Executor Service shutdown.");
-
-            // scheduledExecutorService.shutdown();
-            // logger.info("Scheduled Executor Service shutdown.");
+            channel.close();
+            logger.info("DatagramChannel closed.");
         } catch (Exception e) {
             logger.error("Error in launchUDPServer", e);
         }
@@ -138,12 +95,10 @@ public class OptimizedUDPServer {
         return null;
     }
 
-    private static void shutdownUDPServerAfterSetDuration(int minutes) {
-        logger.info("Entered shutdownUDPServerAfterSetDuration.");
-        scheduledExecutorService.schedule(() -> {
-            continuePolling.set(false);
-            logger.info("UDP Server down after {} minutes.", minutes);
-        }, minutes, TimeUnit.MINUTES);
+    private static void shutdownUDPServer() {
+        logger.info("Shutting down UDP Server.");
+        continuePolling.set(false);
+        logger.info("UDP Server down.");
     }
 
     private static KafkaProducer<String, String> createKafkaProducer() {
@@ -155,13 +110,17 @@ public class OptimizedUDPServer {
         kafkaProperties.put("value.serializer", configLoaderInstance.getProperty("value.serializer"));
         kafkaProperties.put("retries", 0);
         kafkaProperties.put("request.timeout.ms", 50);
-        kafkaProperties.put("delivery.timeout.ms", 100);
-        kafkaProperties.put("max.block.ms", 100); // Reduce the timeout for metadata fetch to 100ms
+        kafkaProperties.put("delivery.timeout.ms", 300);
+        kafkaProperties.put("max.block.ms", 300); // Reduce the timeout for metadata fetch to 100ms
         kafkaProperties.put("max.in.flight.requests.per.connection", 10);
 
         return new KafkaProducer<>(kafkaProperties);
     }
 
+    /**
+     * This is executed in a new thread as per the CompletableFuture runAsync invocation of this method.
+     * @param message
+     */
     private static void processMessageAsync(byte[] message) {
         CompletableFuture<String> valuation = CompletableFuture.supplyAsync(
             () -> new ComputeValuationCallable(new String(message), messagesConsumed.get()).call(),
@@ -169,6 +128,9 @@ public class OptimizedUDPServer {
         );
 
         valuation.thenAcceptAsync(valuationString -> {
+            /** the valuation computation doesn't take long but in case anything else is added to the valuation process, we will use thenAcceptAsync
+             * to simulate a nonblocking approach
+             */
             int messageNumber = messagesSent.incrementAndGet();
             logger.info("Valuation for message {}: {} sent by thread: {}", messageNumber, valuationString, Thread.currentThread().getName());
             ProducerRecord<String, String> record = new ProducerRecord<>("test_topic", UUID.randomUUID().toString(), valuationString);
