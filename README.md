@@ -1240,3 +1240,286 @@ KafkaMessagePublisher shutdown
 ## Attempt to Optimize Receiving, Processing and Publishing
 My intention was to receive messages in a single thread, and to hand off the processing to another thread(s). From the logs, it looked like
 receiving, processing, and publishing were executing as an atomic operation (see logs). I played around with many changes including CompletableFuture, multiple thread pools, different thread sizes, increasing number of tickers (to see if order gets interleaved), datagram channel buffer copy / reuse, and switching to async logging. If you look at the logs, the processing and publishing are in fact getting executed in separate threads. But for a given stock, it doesn't seem to be receiving new messages until the processing is done for the current ticker. Or at least that's what it looks like in the logs. I tried increasing the number of tickers to see if the commands get interweaved, but the operations for each ticker still seem to be atomic and serial. I was testing all this in OptimizedUDPServer. 
+
+### Update
+I was testing with the broker down and had lowered some of the timeouts to 100ms. So the async processing was done before the next message was even received,
+giving the impression that everything is executing serially. After just increasing it to 300ms from 100ms you can see that some of the messages are sent in a more random manner now as expected. The logs below show how the publishing is getting executed asynchronously and not directly after. 
+<details>
+<summary>Output</summary>
+
+```
+[main] INFO SocketTesting.OptimizedUDPServer - UDP server up and listening on 127.0.0.1: 5005
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-2] INFO Valuation.ComputeValuationCallable - Message for ticker: AMD handled by thread: pool-1-thread-2
+[pool-1-thread-2] INFO Valuation.ComputeValuationCallable - Valuation for ticker: AMD: 6.214131578947369
+[pool-2-thread-1] INFO SocketTesting.OptimizedUDPServer - Valuation for message 1: {"ticker":"AMD","ttm_eps":1.0,"price_tgt":140.47905,"price":87.5,"1yg":0.3423,"LTG":"NaN","Valuation":6.214131578947369} sent by thread: pool-2-thread-1
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Message for ticker: AMZN handled by thread: pool-1-thread-4
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Valuation for ticker: AMZN: 33.29122369091729
+[pool-2-thread-2] INFO SocketTesting.OptimizedUDPServer - Valuation for message 2: {"ticker":"AMZN","ttm_eps":5.52,"price_tgt":249.40323,"price":172.61,"1yg":0.19469999,"LTG":"NaN","Valuation":33.29122369091729} sent by thread: pool-2-thread-2
+[pool-2-thread-1] ERROR SocketTesting.OptimizedUDPServer - Error sending message 1 at currentTimeMS 1745291271434: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-6] INFO Valuation.ComputeValuationCallable - Message for ticker: DELL handled by thread: pool-1-thread-6
+[pool-1-thread-6] INFO Valuation.ComputeValuationCallable - Valuation for ticker: DELL: 37.940468872180446
+[pool-2-thread-3] INFO SocketTesting.OptimizedUDPServer - Valuation for message 3: {"ticker":"DELL","ttm_eps":6.38,"price_tgt":127.06304,"price":84.8,"1yg":0.1268,"LTG":"NaN","Valuation":37.940468872180446} sent by thread: pool-2-thread-3
+[pool-2-thread-2] ERROR SocketTesting.OptimizedUDPServer - Error sending message 2 at currentTimeMS 1745291271595: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Message for ticker: INTC handled by thread: pool-1-thread-8
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Valuation for ticker: INTC: -32.41264218045113
+[pool-2-thread-4] INFO SocketTesting.OptimizedUDPServer - Valuation for message 4: {"ticker":"INTC","ttm_eps":-4.38,"price_tgt":22.44091,"price":18.93,"1yg":1.2983,"LTG":"NaN","Valuation":-32.41264218045113} sent by thread: pool-2-thread-4
+[pool-2-thread-3] ERROR SocketTesting.OptimizedUDPServer - Error sending message 3 at currentTimeMS 1745291271805: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Message for ticker: LCID handled by thread: pool-1-thread-1
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Valuation for ticker: LCID: -7.714938909774437
+[pool-2-thread-5] INFO SocketTesting.OptimizedUDPServer - Valuation for message 5: {"ticker":"LCID","ttm_eps":-1.25,"price_tgt":2.59308,"price":2.38,"1yg":0.3083,"LTG":"NaN","Valuation":-7.714938909774437} sent by thread: pool-2-thread-5
+[pool-2-thread-4] ERROR SocketTesting.OptimizedUDPServer - Error sending message 4 at currentTimeMS 1745291272053: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Message for ticker: MTH handled by thread: pool-1-thread-4
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Valuation for ticker: MTH: 64.37988691729325
+[pool-2-thread-6] INFO SocketTesting.OptimizedUDPServer - Valuation for message 6: {"ticker":"MTH","ttm_eps":10.72,"price_tgt":95.84,"price":65.13,"1yg":0.1742,"LTG":"NaN","Valuation":64.37988691729325} sent by thread: pool-2-thread-6
+[pool-2-thread-5] ERROR SocketTesting.OptimizedUDPServer - Error sending message 5 at currentTimeMS 1745291272317: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-6] INFO Valuation.ComputeValuationCallable - Message for ticker: MCHP handled by thread: pool-1-thread-6
+[pool-1-thread-6] INFO Valuation.ComputeValuationCallable - Valuation for ticker: MCHP: 3.2593392857142853
+[pool-2-thread-7] INFO SocketTesting.OptimizedUDPServer - Valuation for message 7: {"ticker":"MCHP","ttm_eps":0.57,"price_tgt":60.99696,"price":38.56,"1yg":-0.0575,"LTG":"NaN","Valuation":3.2593392857142853} sent by thread: pool-2-thread-7
+[pool-2-thread-6] ERROR SocketTesting.OptimizedUDPServer - Error sending message 6 at currentTimeMS 1745291272553: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Message for ticker: PYPL handled by thread: pool-1-thread-8
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Valuation for ticker: PYPL: 23.658359975250004
+[pool-2-thread-8] INFO SocketTesting.OptimizedUDPServer - Valuation for message 8: {"ticker":"PYPL","ttm_eps":3.99,"price_tgt":86.03081,"price":61.0,"1yg":0.112799995,"LTG":"NaN","Valuation":23.658359975250004} sent by thread: pool-2-thread-8
+[pool-2-thread-7] ERROR SocketTesting.OptimizedUDPServer - Error sending message 7 at currentTimeMS 1745291272805: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Message for ticker: PBR handled by thread: pool-1-thread-1
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Valuation for ticker: PBR: 6.724567970356541
+[pool-2-thread-9] INFO SocketTesting.OptimizedUDPServer - Valuation for message 9: {"ticker":"PBR","ttm_eps":1.16,"price_tgt":16.31321,"price":11.62,"1yg":0.0061000003,"LTG":"NaN","Valuation":6.724567970356541} sent by thread: pool-2-thread-9
+[pool-2-thread-8] ERROR SocketTesting.OptimizedUDPServer - Error sending message 8 at currentTimeMS 1745291273023: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Message for ticker: PONY handled by thread: pool-1-thread-4
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Valuation for ticker: PONY: -13.906944360902255
+[pool-2-thread-10] INFO SocketTesting.OptimizedUDPServer - Valuation for message 10: {"ticker":"PONY","ttm_eps":-2.4,"price_tgt":21.75,"price":4.48,"1yg":0.0041,"LTG":"NaN","Valuation":-13.906944360902255} sent by thread: pool-2-thread-10
+[pool-2-thread-9] ERROR SocketTesting.OptimizedUDPServer - Error sending message 9 at currentTimeMS 1745291273242: Topic test_topic not present in metadata after 300 ms.
+[pool-2-thread-10] ERROR SocketTesting.OptimizedUDPServer - Error sending message 10 at currentTimeMS 1745291273474: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Message for ticker: IOT handled by thread: pool-1-thread-5
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Valuation for ticker: IOT: -1.7414505263157896
+[pool-2-thread-11] INFO SocketTesting.OptimizedUDPServer - Valuation for message 11: {"ticker":"IOT","ttm_eps":-0.28,"price_tgt":47.45222,"price":37.52,"1yg":0.3466,"LTG":"NaN","Valuation":-1.7414505263157896} sent by thread: pool-2-thread-11
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Message for ticker: SNOW handled by thread: pool-1-thread-8
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Valuation for ticker: SNOW: -24.043054812030075
+[pool-2-thread-12] INFO SocketTesting.OptimizedUDPServer - Valuation for message 12: {"ticker":"SNOW","ttm_eps":-3.86,"price_tgt":197.062,"price":143.43,"1yg":0.3541,"LTG":"NaN","Valuation":-24.043054812030075} sent by thread: pool-2-thread-12
+[pool-2-thread-11] ERROR SocketTesting.OptimizedUDPServer - Error sending message 11 at currentTimeMS 1745291273847: Topic test_topic not present in metadata after 300 ms.
+[pool-2-thread-12] ERROR SocketTesting.OptimizedUDPServer - Error sending message 12 at currentTimeMS 1745291274051: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Message for ticker: TGT handled by thread: pool-1-thread-1
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Valuation for ticker: TGT: 52.133405789473684
+[pool-2-thread-13] INFO SocketTesting.OptimizedUDPServer - Valuation for message 13: {"ticker":"TGT","ttm_eps":8.86,"price_tgt":129.18182,"price":93.11,"1yg":0.0763,"LTG":"NaN","Valuation":52.133405789473684} sent by thread: pool-2-thread-13
+[kafka-producer-network-thread | producer-1] INFO org.apache.kafka.clients.NetworkClient - [Producer clientId=producer-1] Disconnecting from node -1 due to socket connection setup timeout. The timeout value is 11464 ms.
+[kafka-producer-network-thread | producer-1] WARN org.apache.kafka.clients.NetworkClient - [Producer clientId=producer-1] Bootstrap broker 192.168.1.154:9092 (id: -1 rack: null) disconnected
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-3] INFO Valuation.ComputeValuationCallable - Message for ticker: WMT handled by thread: pool-1-thread-3
+[pool-1-thread-3] INFO Valuation.ComputeValuationCallable - Valuation for ticker: WMT: 14.317393233082708
+[pool-2-thread-14] INFO SocketTesting.OptimizedUDPServer - Valuation for message 14: {"ticker":"WMT","ttm_eps":2.41,"price_tgt":106.59366,"price":93.22,"1yg":0.122,"LTG":"NaN","Valuation":14.317393233082708} sent by thread: pool-2-thread-14
+[pool-2-thread-13] ERROR SocketTesting.OptimizedUDPServer - Error sending message 13 at currentTimeMS 1745291274486: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Message for ticker: BAC handled by thread: pool-1-thread-5
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Valuation for ticker: BAC: 20.07341409774436
+[pool-2-thread-15] INFO SocketTesting.OptimizedUDPServer - Valuation for message 15: {"ticker":"BAC","ttm_eps":3.35,"price_tgt":48.64286,"price":37.41,"1yg":0.1633,"LTG":"NaN","Valuation":20.07341409774436} sent by thread: pool-2-thread-15
+[pool-2-thread-14] ERROR SocketTesting.OptimizedUDPServer - Error sending message 14 at currentTimeMS 1745291274674: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-7] INFO Valuation.ComputeValuationCallable - Message for ticker: AI handled by thread: pool-1-thread-7
+[pool-1-thread-7] INFO Valuation.ComputeValuationCallable - Valuation for ticker: AI: -13.082605187969925
+[pool-2-thread-16] INFO SocketTesting.OptimizedUDPServer - Valuation for message 16: {"ticker":"AI","ttm_eps":-2.23,"price_tgt":29.46533,"price":19.35,"1yg":0.0622,"LTG":"NaN","Valuation":-13.082605187969925} sent by thread: pool-2-thread-16
+[pool-2-thread-15] ERROR SocketTesting.OptimizedUDPServer - Error sending message 15 at currentTimeMS 1745291274876: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Message for ticker: ENPH handled by thread: pool-1-thread-1
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Valuation for ticker: ENPH: 4.548758449342106
+[pool-2-thread-1] INFO SocketTesting.OptimizedUDPServer - Valuation for message 17: {"ticker":"ENPH","ttm_eps":0.75,"price_tgt":72.26722,"price":52.54,"1yg":0.22209999,"LTG":"NaN","Valuation":4.548758449342106} sent by thread: pool-2-thread-1
+[pool-2-thread-16] ERROR SocketTesting.OptimizedUDPServer - Error sending message 16 at currentTimeMS 1745291275066: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Message for ticker: FSLR handled by thread: pool-1-thread-4
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Valuation for ticker: FSLR: 76.38786819548872
+[pool-2-thread-2] INFO SocketTesting.OptimizedUDPServer - Valuation for message 18: {"ticker":"FSLR","ttm_eps":12.02,"price_tgt":231.38147,"price":127.98,"1yg":0.4559,"LTG":"NaN","Valuation":76.38786819548872} sent by thread: pool-2-thread-2
+[pool-2-thread-1] ERROR SocketTesting.OptimizedUDPServer - Error sending message 17 at currentTimeMS 1745291275316: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Message for ticker: JPM handled by thread: pool-1-thread-5
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Valuation for ticker: JPM: 119.51153789473683
+[pool-2-thread-3] INFO SocketTesting.OptimizedUDPServer - Valuation for message 19: {"ticker":"JPM","ttm_eps":20.38,"price_tgt":257.75046,"price":231.96,"1yg":0.0602,"LTG":"NaN","Valuation":119.51153789473683} sent by thread: pool-2-thread-3
+[pool-2-thread-2] ERROR SocketTesting.OptimizedUDPServer - Error sending message 18 at currentTimeMS 1745291275565: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-7] INFO Valuation.ComputeValuationCallable - Message for ticker: PLTR handled by thread: pool-1-thread-7
+[pool-1-thread-7] INFO Valuation.ComputeValuationCallable - Valuation for ticker: PLTR: 1.1598714285714287
+[pool-2-thread-4] INFO SocketTesting.OptimizedUDPServer - Valuation for message 20: {"ticker":"PLTR","ttm_eps":0.19,"price_tgt":87.04727,"price":93.78,"1yg":0.254,"LTG":"NaN","Valuation":1.1598714285714287} sent by thread: pool-2-thread-4
+[pool-2-thread-3] ERROR SocketTesting.OptimizedUDPServer - Error sending message 19 at currentTimeMS 1745291275801: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Message for ticker: GOOG handled by thread: pool-1-thread-1
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Valuation for ticker: GOOG: 47.91753421052632
+[pool-2-thread-5] INFO SocketTesting.OptimizedUDPServer - Valuation for message 21: {"ticker":"GOOG","ttm_eps":8.05,"price_tgt":201.7857,"price":153.36,"1yg":0.1314,"LTG":"NaN","Valuation":47.91753421052632} sent by thread: pool-2-thread-5
+[pool-2-thread-4] ERROR SocketTesting.OptimizedUDPServer - Error sending message 20 at currentTimeMS 1745291275989: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Message for ticker: AAPL handled by thread: pool-1-thread-4
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Valuation for ticker: AAPL: 37.28339996092105
+[pool-2-thread-6] INFO SocketTesting.OptimizedUDPServer - Valuation for message 22: {"ticker":"AAPL","ttm_eps":6.3,"price_tgt":237.3895,"price":196.98,"1yg":0.103599995,"LTG":"NaN","Valuation":37.28339996092105} sent by thread: pool-2-thread-6
+[pool-2-thread-5] ERROR SocketTesting.OptimizedUDPServer - Error sending message 21 at currentTimeMS 1745291276255: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-6] INFO Valuation.ComputeValuationCallable - Message for ticker: SMCI handled by thread: pool-1-thread-6
+[pool-1-thread-6] INFO Valuation.ComputeValuationCallable - Valuation for ticker: SMCI: 14.484249999999998
+[pool-2-thread-7] INFO SocketTesting.OptimizedUDPServer - Valuation for message 23: {"ticker":"SMCI","ttm_eps":2.3,"price_tgt":51.765,"price":31.505,"1yg":0.4095,"LTG":"NaN","Valuation":14.484249999999998} sent by thread: pool-2-thread-7
+[pool-2-thread-6] ERROR SocketTesting.OptimizedUDPServer - Error sending message 22 at currentTimeMS 1745291276442: Topic test_topic not present in metadata after 300 ms.
+[pool-2-thread-7] ERROR SocketTesting.OptimizedUDPServer - Error sending message 23 at currentTimeMS 1745291276642: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-7] INFO Valuation.ComputeValuationCallable - Message for ticker: WOLF handled by thread: pool-1-thread-7
+[pool-1-thread-7] INFO Valuation.ComputeValuationCallable - Valuation for ticker: WOLF: -47.91737274152632
+[pool-2-thread-8] INFO SocketTesting.OptimizedUDPServer - Valuation for message 24: {"ticker":"WOLF","ttm_eps":-7.69,"price_tgt":5.7,"price":2.47,"1yg":0.35599998,"LTG":"NaN","Valuation":-47.91737274152632} sent by thread: pool-2-thread-8
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Message for ticker: KC handled by thread: pool-1-thread-1
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Valuation for ticker: KC: -7.516237969924814
+[pool-2-thread-9] INFO SocketTesting.OptimizedUDPServer - Valuation for message 25: {"ticker":"KC","ttm_eps":-1.1,"price_tgt":17.4068,"price":11.035,"1yg":0.8411,"LTG":"NaN","Valuation":-7.516237969924814} sent by thread: pool-2-thread-9
+[pool-2-thread-8] ERROR SocketTesting.OptimizedUDPServer - Error sending message 24 at currentTimeMS 1745291277035: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Message for ticker: EVLV handled by thread: pool-1-thread-4
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Valuation for ticker: EVLV: -0.7126627067669173
+[pool-2-thread-10] INFO SocketTesting.OptimizedUDPServer - Valuation for message 26: {"ticker":"EVLV","ttm_eps":-0.11,"price_tgt":4.75,"price":3.31,"1yg":0.5556,"LTG":"NaN","Valuation":-0.7126627067669173} sent by thread: pool-2-thread-10
+[pool-2-thread-9] ERROR SocketTesting.OptimizedUDPServer - Error sending message 25 at currentTimeMS 1745291277223: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-6] INFO Valuation.ComputeValuationCallable - Message for ticker: OKTA handled by thread: pool-1-thread-6
+[pool-1-thread-6] INFO Valuation.ComputeValuationCallable - Valuation for ticker: OKTA: 0.35503533834586465
+[pool-2-thread-11] INFO SocketTesting.OptimizedUDPServer - Valuation for message 27: {"ticker":"OKTA","ttm_eps":0.06,"price_tgt":116.98026,"price":97.93,"1yg":0.103,"LTG":"NaN","Valuation":0.35503533834586465} sent by thread: pool-2-thread-11
+[pool-2-thread-10] ERROR SocketTesting.OptimizedUDPServer - Error sending message 26 at currentTimeMS 1745291277426: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-7] INFO Valuation.ComputeValuationCallable - Message for ticker: QRVO handled by thread: pool-1-thread-7
+[pool-1-thread-7] INFO Valuation.ComputeValuationCallable - Valuation for ticker: QRVO: 1.6387336842105265
+[pool-2-thread-12] INFO SocketTesting.OptimizedUDPServer - Valuation for message 28: {"ticker":"QRVO","ttm_eps":0.28,"price_tgt":88.678,"price":57.63,"1yg":0.0509,"LTG":"NaN","Valuation":1.6387336842105265} sent by thread: pool-2-thread-12
+[pool-2-thread-11] ERROR SocketTesting.OptimizedUDPServer - Error sending message 27 at currentTimeMS 1745291277661: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Message for ticker: JNPR handled by thread: pool-1-thread-1
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Valuation for ticker: JNPR: 5.059072862477443
+[pool-2-thread-13] INFO SocketTesting.OptimizedUDPServer - Valuation for message 29: {"ticker":"JNPR","ttm_eps":0.86,"price_tgt":39.88889,"price":34.33,"1yg":0.075100005,"LTG":"NaN","Valuation":5.059072862477443} sent by thread: pool-2-thread-13
+[pool-2-thread-12] ERROR SocketTesting.OptimizedUDPServer - Error sending message 28 at currentTimeMS 1745291277850: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Message for ticker: UBER handled by thread: pool-1-thread-4
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Valuation for ticker: UBER: 28.17917142857143
+[pool-2-thread-14] INFO SocketTesting.OptimizedUDPServer - Valuation for message 30: {"ticker":"UBER","ttm_eps":4.56,"price_tgt":88.48354,"price":75.24,"1yg":0.3145,"LTG":"NaN","Valuation":28.17917142857143} sent by thread: pool-2-thread-14
+[pool-2-thread-13] ERROR SocketTesting.OptimizedUDPServer - Error sending message 29 at currentTimeMS 1745291278055: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Message for ticker: DKNG handled by thread: pool-1-thread-5
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Valuation for ticker: DKNG: -7.051882894736843
+[pool-2-thread-15] INFO SocketTesting.OptimizedUDPServer - Valuation for message 31: {"ticker":"DKNG","ttm_eps":-1.05,"price_tgt":56.38125,"price":33.61,"1yg":0.7469,"LTG":"NaN","Valuation":-7.051882894736843} sent by thread: pool-2-thread-15
+[pool-2-thread-14] ERROR SocketTesting.OptimizedUDPServer - Error sending message 30 at currentTimeMS 1745291278307: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-7] INFO Valuation.ComputeValuationCallable - Message for ticker: RBRK handled by thread: pool-1-thread-7
+[pool-1-thread-7] INFO Valuation.ComputeValuationCallable - Valuation for ticker: RBRK: -47.584132481203014
+[pool-2-thread-16] INFO SocketTesting.OptimizedUDPServer - Valuation for message 32: {"ticker":"RBRK","ttm_eps":-7.48,"price_tgt":79.9225,"price":61.61,"1yg":0.4611,"LTG":"NaN","Valuation":-47.584132481203014} sent by thread: pool-2-thread-16
+[pool-2-thread-15] ERROR SocketTesting.OptimizedUDPServer - Error sending message 31 at currentTimeMS 1745291278554: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-2] INFO Valuation.ComputeValuationCallable - Message for ticker: ORCL handled by thread: pool-1-thread-2
+[pool-1-thread-2] INFO Valuation.ComputeValuationCallable - Valuation for ticker: ORCL: 25.29048293233083
+[pool-2-thread-1] INFO SocketTesting.OptimizedUDPServer - Valuation for message 33: {"ticker":"ORCL","ttm_eps":4.26,"price_tgt":180.4706,"price":128.62,"1yg":0.1187,"LTG":"NaN","Valuation":25.29048293233083} sent by thread: pool-2-thread-1
+[pool-2-thread-16] ERROR SocketTesting.OptimizedUDPServer - Error sending message 32 at currentTimeMS 1745291278838: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Message for ticker: MRVL handled by thread: pool-1-thread-4
+[pool-1-thread-4] INFO Valuation.ComputeValuationCallable - Valuation for ticker: MRVL: -6.291846992481203
+[pool-2-thread-2] INFO SocketTesting.OptimizedUDPServer - Valuation for message 34: {"ticker":"MRVL","ttm_eps":-1.02,"price_tgt":106.04056,"price":51.7,"1yg":0.3055,"LTG":"NaN","Valuation":-6.291846992481203} sent by thread: pool-2-thread-2
+[pool-2-thread-1] ERROR SocketTesting.OptimizedUDPServer - Error sending message 33 at currentTimeMS 1745291279057: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-6] INFO Valuation.ComputeValuationCallable - Message for ticker: NKE handled by thread: pool-1-thread-6
+[pool-1-thread-6] INFO Valuation.ComputeValuationCallable - Valuation for ticker: NKE: 17.353498684210525
+[pool-2-thread-3] INFO SocketTesting.OptimizedUDPServer - Valuation for message 35: {"ticker":"NKE","ttm_eps":3.01,"price_tgt":76.61167,"price":55.76,"1yg":-0.0195,"LTG":"NaN","Valuation":17.353498684210525} sent by thread: pool-2-thread-3
+[pool-2-thread-2] ERROR SocketTesting.OptimizedUDPServer - Error sending message 34 at currentTimeMS 1745291279276: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Message for ticker: SNAP handled by thread: pool-1-thread-8
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Valuation for ticker: SNAP: -2.6661568421052633
+[pool-2-thread-4] INFO SocketTesting.OptimizedUDPServer - Valuation for message 36: {"ticker":"SNAP","ttm_eps":-0.42,"price_tgt":11.74917,"price":7.88,"1yg":0.4502,"LTG":"NaN","Valuation":-2.6661568421052633} sent by thread: pool-2-thread-4
+[pool-2-thread-3] ERROR SocketTesting.OptimizedUDPServer - Error sending message 35 at currentTimeMS 1745291279481: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-2] INFO Valuation.ComputeValuationCallable - Message for ticker: OKLO handled by thread: pool-1-thread-2
+[pool-1-thread-2] INFO Valuation.ComputeValuationCallable - Valuation for ticker: OKLO: -4.1993831578947365
+[pool-2-thread-5] INFO SocketTesting.OptimizedUDPServer - Valuation for message 37: {"ticker":"OKLO","ttm_eps":-0.74,"price_tgt":45.46333,"price":21.98,"1yg":-0.0924,"LTG":"NaN","Valuation":-4.1993831578947365} sent by thread: pool-2-thread-5
+[pool-2-thread-4] ERROR SocketTesting.OptimizedUDPServer - Error sending message 36 at currentTimeMS 1745291279700: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-3] INFO Valuation.ComputeValuationCallable - Message for ticker: ICE handled by thread: pool-1-thread-3
+[pool-1-thread-3] INFO Valuation.ComputeValuationCallable - Valuation for ticker: ICE: 28.289220249234585
+[pool-2-thread-6] INFO SocketTesting.OptimizedUDPServer - Valuation for message 38: {"ticker":"ICE","ttm_eps":4.77,"price_tgt":187.375,"price":158.64,"1yg":0.113800004,"LTG":"NaN","Valuation":28.289220249234585} sent by thread: pool-2-thread-6
+[pool-2-thread-5] ERROR SocketTesting.OptimizedUDPServer - Error sending message 37 at currentTimeMS 1745291279920: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Message for ticker: CME handled by thread: pool-1-thread-5
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Valuation for ticker: CME: 56.505153133926314
+[pool-2-thread-7] INFO SocketTesting.OptimizedUDPServer - Valuation for message 39: {"ticker":"CME","ttm_eps":9.66,"price_tgt":266.9412,"price":262.53,"1yg":0.048299998,"LTG":"NaN","Valuation":56.505153133926314} sent by thread: pool-2-thread-7
+[pool-2-thread-6] ERROR SocketTesting.OptimizedUDPServer - Error sending message 38 at currentTimeMS 1745291280124: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Message for ticker: CBOE handled by thread: pool-1-thread-8
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Valuation for ticker: CBOE: 42.24248120300752
+[pool-2-thread-8] INFO SocketTesting.OptimizedUDPServer - Valuation for message 40: {"ticker":"CBOE","ttm_eps":7.2,"price_tgt":220.33333,"price":217.07,"1yg":0.0625,"LTG":"NaN","Valuation":42.24248120300752} sent by thread: pool-2-thread-8
+[pool-2-thread-7] ERROR SocketTesting.OptimizedUDPServer - Error sending message 39 at currentTimeMS 1745291280328: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-2] INFO Valuation.ComputeValuationCallable - Message for ticker: NDAQ handled by thread: pool-1-thread-2
+[pool-1-thread-2] INFO Valuation.ComputeValuationCallable - Valuation for ticker: NDAQ: 11.461965263157895
+[pool-2-thread-9] INFO SocketTesting.OptimizedUDPServer - Valuation for message 41: {"ticker":"NDAQ","ttm_eps":1.93,"price_tgt":83.05556,"price":72.18,"1yg":0.1204,"LTG":"NaN","Valuation":11.461965263157895} sent by thread: pool-2-thread-9
+[pool-2-thread-8] ERROR SocketTesting.OptimizedUDPServer - Error sending message 40 at currentTimeMS 1745291280534: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-3] INFO Valuation.ComputeValuationCallable - Message for ticker: APLD handled by thread: pool-1-thread-3
+[pool-1-thread-3] INFO Valuation.ComputeValuationCallable - Valuation for ticker: APLD: -7.948466842105264
+[pool-2-thread-10] INFO SocketTesting.OptimizedUDPServer - Valuation for message 42: {"ticker":"APLD","ttm_eps":-1.47,"price_tgt":10.05556,"price":3.95,"1yg":-0.3082,"LTG":"NaN","Valuation":-7.948466842105264} sent by thread: pool-2-thread-10
+[pool-2-thread-9] ERROR SocketTesting.OptimizedUDPServer - Error sending message 41 at currentTimeMS 1745291280722: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Message for ticker: CEG handled by thread: pool-1-thread-5
+[pool-1-thread-5] INFO Valuation.ComputeValuationCallable - Valuation for ticker: CEG: 70.46648796992483
+[pool-2-thread-11] INFO SocketTesting.OptimizedUDPServer - Valuation for message 43: {"ticker":"CEG","ttm_eps":11.88,"price_tgt":291.75858,"price":206.68,"1yg":0.1145,"LTG":"NaN","Valuation":70.46648796992483} sent by thread: pool-2-thread-11
+[pool-2-thread-10] ERROR SocketTesting.OptimizedUDPServer - Error sending message 42 at currentTimeMS 1745291280957: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Message for ticker: TLN handled by thread: pool-1-thread-8
+[pool-1-thread-8] INFO Valuation.ComputeValuationCallable - Valuation for ticker: TLN: 126.01558563909774
+[pool-2-thread-12] INFO SocketTesting.OptimizedUDPServer - Valuation for message 44: {"ticker":"TLN","ttm_eps":17.66,"price_tgt":259.44077,"price":203.46,"1yg":1.0851,"LTG":"NaN","Valuation":126.01558563909774} sent by thread: pool-2-thread-12
+[pool-2-thread-11] ERROR SocketTesting.OptimizedUDPServer - Error sending message 43 at currentTimeMS 1745291281191: Topic test_topic not present in metadata after 300 ms.
+[main] INFO SocketTesting.OptimizedUDPServer - Received message from /127.0.0.1:63939
+[main] INFO SocketTesting.OptimizedUDPServer - Message getting processed asynchronously for /127.0.0.1:63939
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Message for ticker: VST handled by thread: pool-1-thread-1
+[pool-1-thread-1] INFO Valuation.ComputeValuationCallable - Valuation for ticker: VST: 42.43597368421053
+[pool-2-thread-13] INFO SocketTesting.OptimizedUDPServer - Valuation for message 45: {"ticker":"VST","ttm_eps":7.0,"price_tgt":167.6661,"price":115.42,"1yg":0.2199,"LTG":"NaN","Valuation":42.43597368421053} sent by thread: pool-2-thread-13
+[pool-2-thread-12] ERROR SocketTesting.OptimizedUDPServer - Error sending message 44 at currentTimeMS 1745291281427: Topic test_topic not present in metadata after 300 ms.
+[pool-2-thread-13] ERROR SocketTesting.OptimizedUDPServer - Error sending message 45 at currentTimeMS 1745291281677: Topic test_topic not present in metadata after 300 ms.
+```
+</details>
