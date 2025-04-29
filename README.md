@@ -78,10 +78,8 @@ curl: (28) Failed to connect to 127.0.0.1 port 9092 after 21036 ms: Couldn't con
 ```
 
 #### Architecture
-TODO provide architecture diagram and description
 
-##### UDP Client
-A Python client that leverages the yfinance 
+![Alt text](Images/sora_architecture_diagram.png) 
 
 ### Execution Times
 Execution times for publishing all messages to Kafka in different scenarios.
