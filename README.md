@@ -1521,3 +1521,9 @@ giving the impression that everything is executing serially. After just increasi
 [pool-2-thread-13] ERROR SocketTesting.OptimizedUDPServer - Error sending message 45 at currentTimeMS 1745291281677: Topic test_topic not present in metadata after 300 ms.
 ```
 </details>
+
+
+
+# Redesign
+
+I'm attempting to make this application more accessible by setting up an API server on the custom host. I want to be able to hit this endpoint from my phone via postman or some other application. I want the endpoint to trigger an asynchronous job that computes the valuations and outputs them to Kafka. I want to visualize the kafka messages via Grafana or some other built in dashboard. Incorporating the phone will make this more usable and helpful to me in my investing process.
