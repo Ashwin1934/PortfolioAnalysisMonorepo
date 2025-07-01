@@ -1,8 +1,13 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 import yfinance as yf
 import logging
+from concurrent.futures import ThreadPoolExecutor
+import time
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(threadName)s] %(name)s: %(message)s"
+)
 logger = logging.getLogger(__name__)
 app = FastAPI()
 
@@ -50,14 +55,17 @@ def fetch_and_calculate_valuation(ticker, bond_yield):
         print(f"Error fetching data for {ticker}: {e}")
         logger.error("Error fetching data for %s: %s", ticker, e)
 
-# Function to process all tickers in the background
+# Function to process all tickers in the background (sequential)
 def process_valuations(bond_yield, file_path="tickers.txt"):
+    start_time = time.perf_counter()
     try:
         with open(file_path, 'r') as file:
             tickers = [line.strip() for line in file.readlines()]
         
         for ticker in tickers:
             fetch_and_calculate_valuation(ticker, bond_yield)
+        elapsed = time.perf_counter() - start_time
+        logger.info("Sequential processing completed in %.2f seconds.", elapsed)
     
     except FileNotFoundError:
         logger.error("File not found: %s", file_path)
@@ -76,4 +84,39 @@ async def compute_valuations(background_tasks: BackgroundTasks):
     
     # Return an immediate response
     return {"message": "Valuation computation triggered. Results will be printed to the console."}
+
+# Function to process all tickers in the background (async/threaded)
+def process_valuations_async(bond_yield, file_path="tickers.txt"):
+    start_time = time.perf_counter()
+    try:
+        with open(file_path, 'r') as file:
+            tickers = [line.strip() for line in file.readlines()]
+        
+        with ThreadPoolExecutor() as executor:
+            # Submit tasks for each ticker to the executor
+            futures = [executor.submit(fetch_and_calculate_valuation, ticker, bond_yield) for ticker in tickers]
+            
+            # Wait for all futures to complete
+            for future in futures:
+                future.result()
+        elapsed = time.perf_counter() - start_time
+        logger.info("Async processing completed in %.2f seconds.", elapsed)
+    
+    except FileNotFoundError:
+        logger.error("File not found: %s", file_path)
+    except Exception as e:
+        logger.error("An error occurred: %s", e)
+
+# Endpoint to trigger valuation computation
+@app.post("/compute_valuations_async")
+async def compute_valuations_async(background_tasks: BackgroundTasks):
+    bond_yield = 5.54  # 20-year corporate bond yield
+    ticker_path = r"C:\Users\ashud\NewProjects\PortfolioAnalysisMonorepo\portfolioTickersFull"
+    path = "testTickers.txt"
+    
+    # Schedule the background task
+    background_tasks.add_task(process_valuations_async, bond_yield, path)
+    
+    # Return an immediate response
+    return {"message": "Async Valuation computation triggered. Results will be printed to the console."}
 
