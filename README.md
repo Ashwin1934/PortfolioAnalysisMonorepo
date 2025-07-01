@@ -1529,8 +1529,11 @@ giving the impression that everything is executing serially. After just increasi
 I'm attempting to make this application more accessible by setting up an API server on the custom host. I want to be able to hit this endpoint from my phone via postman or some other application. I want the endpoint to trigger an asynchronous job that computes the valuations and outputs them to Kafka. I want to visualize the kafka messages via Grafana or some other built in dashboard. Incorporating the phone will make this more usable and helpful to me in my investing process.
 
 
+## Speedup of asynchronous vs synchronous valuation process
+Even for a small list of just 6 stocks, asynchronous computation resulted in a (2.47s/1.26s) = ~2x speedup.
+
 <details>
-<summary>Sample FastAPI Logs 6/30/25</summary>
+<summary>Logs for Async and Sync Valuation Computations</summary>
 
 ```
 INFO:     Started server process [1]
@@ -1539,79 +1542,88 @@ INFO:     Waiting for application startup.
 
 INFO:     Application startup complete.
 
-INFO:     Uvicorn running on http://0.0.0.0:8000⁠
+INFO:     Uvicorn running on http://0.0.0.0:8000⁠ (Press CTRL+C to quit)
 
-INFO:     XXX - "POST /compute_valuations HTTP/1.1" 200 OK
+INFO:     XXX.XX.X.X:34208 - "POST /compute_valuations HTTP/1.1" 200 OK
 
-INFO:main:Growth_estimates for GOOGL:         stockTrend  indexTrend
+2025-07-01 15:00:44,396 INFO [AnyIO worker thread] main: Valuation inputs for GOOGL - EPS: 8.95, 1Y Growth Rate: 6.23, 1Y Sales Growth Rate: 10.5900005, Bond Yield: 5.54
 
-period                        
+2025-07-01 15:00:44,396 INFO [AnyIO worker thread] main: Ticker: GOOGL, Valuation (Growth Rate): 116.19
 
-0q          0.1518      0.1313
+2025-07-01 15:00:44,396 INFO [AnyIO worker thread] main: Ticker: GOOGL, Valuation (Sales Growth Rate): 162.67
 
-+1q         0.0605      0.0220
+2025-07-01 15:00:44,770 INFO [AnyIO worker thread] main: Valuation inputs for FSLR - EPS: 11.77, 1Y Growth Rate: 56.86, 1Y Sales Growth Rate: 20.799999, Bond Yield: 5.54
 
-0y          0.1941      0.0741
+2025-07-01 15:00:44,770 INFO [AnyIO worker thread] main: Ticker: FSLR, Valuation (Growth Rate): 862.73
 
-+1y         0.0623      0.1407
+2025-07-01 15:00:44,770 INFO [AnyIO worker thread] main: Ticker: FSLR, Valuation (Sales Growth Rate): 357.09
 
-LTG            NaN      0.1220
+2025-07-01 15:00:45,146 INFO [AnyIO worker thread] main: Valuation inputs for META - EPS: 25.61, 1Y Growth Rate: 11.690000000000001, 1Y Sales Growth Rate: 13.68, Bond Yield: 5.54
 
-INFO:main:Revenue estimate for GOOGL:                  avg           low  ...  yearAgoRevenue  growth
+2025-07-01 15:00:45,146 INFO [AnyIO worker thread] main: Ticker: META, Valuation (Growth Rate): 499.04
 
-period                              ...                        
+2025-07-01 15:00:45,147 INFO [AnyIO worker thread] main: Ticker: META, Valuation (Sales Growth Rate): 559.76
 
-0q       93733128610   91693806000  ...     84742000000  0.1061
+2025-07-01 15:00:45,486 INFO [AnyIO worker thread] main: Valuation inputs for AAPL - EPS: 6.42, 1Y Growth Rate: 9.2, 1Y Sales Growth Rate: 5.79, Bond Yield: 5.54
 
-+1q      97159559730   92558000000  ...     88268000000  0.1007
+2025-07-01 15:00:45,486 INFO [AnyIO worker thread] main: Ticker: AAPL, Valuation (Growth Rate): 106.06
 
-0y      387817316750  379231000000  ...    350018000000  0.1080
+2025-07-01 15:00:45,487 INFO [AnyIO worker thread] main: Ticker: AAPL, Valuation (Sales Growth Rate): 79.98
 
-+1y     428897932000  408486000000  ...    387817316750  0.1059
+2025-07-01 15:00:45,855 INFO [AnyIO worker thread] main: Valuation inputs for NVDA - EPS: 3.1, 1Y Growth Rate: 34.4, 1Y Sales Growth Rate: 25.530002000000003, Bond Yield: 5.54
 
+2025-07-01 15:00:45,855 INFO [AnyIO worker thread] main: Ticker: NVDA, Valuation (Growth Rate): 144.28
 
-[4 rows x 6 columns]
+2025-07-01 15:00:45,856 INFO [AnyIO worker thread] main: Ticker: NVDA, Valuation (Sales Growth Rate): 111.52
 
-INFO:main:Valuation inputs for GOOGL - EPS: 8.96, 1Y Growth Rate: 6.23, 1Y Sales Growth Rate: 10.5900005, Bond Yield: 5.54
+2025-07-01 15:00:46,202 INFO [AnyIO worker thread] main: Valuation inputs for AMD - EPS: 1.38, 1Y Growth Rate: 47.449999999999996, 1Y Sales Growth Rate: 17.84, Bond Yield: 5.54
 
-INFO:main:Ticker: GOOGL, Valuation (Growth Rate): 116.32
+2025-07-01 15:00:46,202 INFO [AnyIO worker thread] main: Ticker: AMD, Valuation (Growth Rate): 85.68
 
-INFO:main:Ticker: GOOGL, Valuation (Sales Growth Rate): 162.86
+2025-07-01 15:00:46,203 INFO [AnyIO worker thread] main: Ticker: AMD, Valuation (Sales Growth Rate): 37.00
 
-INFO:main:Growth_estimates for FSLR:         stockTrend  indexTrend
+2025-07-01 15:00:46,203 INFO [AnyIO worker thread] main: Sequential processing completed in 2.47 seconds.
 
-period                        
+INFO:     XXX.XX.X.X:34638 - "POST /compute_valuations_async HTTP/1.1" 200 OK
 
-0q         -0.1697      0.1313
+2025-07-01 15:00:56,246 INFO [ThreadPoolExecutor-0_4] main: Valuation inputs for NVDA - EPS: 3.1, 1Y Growth Rate: 34.4, 1Y Sales Growth Rate: 25.530002000000003, Bond Yield: 5.54
 
-+1q         0.5162      0.0220
+2025-07-01 15:00:56,246 INFO [ThreadPoolExecutor-0_4] main: Ticker: NVDA, Valuation (Growth Rate): 144.28
 
-0y          0.2709      0.0741
+2025-07-01 15:00:56,246 INFO [ThreadPoolExecutor-0_4] main: Ticker: NVDA, Valuation (Sales Growth Rate): 111.52
 
-+1y         0.5720      0.1407
+2025-07-01 15:00:56,280 INFO [ThreadPoolExecutor-0_0] main: Valuation inputs for GOOGL - EPS: 8.95, 1Y Growth Rate: 6.23, 1Y Sales Growth Rate: 10.5900005, Bond Yield: 5.54
 
-LTG            NaN      0.1220
+2025-07-01 15:00:56,280 INFO [ThreadPoolExecutor-0_0] main: Ticker: GOOGL, Valuation (Growth Rate): 116.19
 
-INFO:main:Revenue estimate for FSLR:                avg         low  ...  yearAgoRevenue  growth
+2025-07-01 15:00:56,280 INFO [ThreadPoolExecutor-0_0] main: Ticker: GOOGL, Valuation (Sales Growth Rate): 162.67
 
-period                          ...                        
+2025-07-01 15:00:56,291 INFO [ThreadPoolExecutor-0_5] main: Valuation inputs for AMD - EPS: 1.38, 1Y Growth Rate: 47.449999999999996, 1Y Sales Growth Rate: 17.84, Bond Yield: 5.54
 
-0q      1027822090   911400000  ...      1010482000  0.0172
+2025-07-01 15:00:56,291 INFO [ThreadPoolExecutor-0_5] main: Ticker: AMD, Valuation (Growth Rate): 85.68
 
-+1q     1388500160  1175000000  ...       887668000  0.5642
+2025-07-01 15:00:56,291 INFO [ThreadPoolExecutor-0_5] main: Ticker: AMD, Valuation (Sales Growth Rate): 37.00
 
-0y      5035929850  4509568000  ...      4206289000  0.1972
+2025-07-01 15:00:56,304 INFO [ThreadPoolExecutor-0_3] main: Valuation inputs for AAPL - EPS: 6.42, 1Y Growth Rate: 9.2, 1Y Sales Growth Rate: 5.79, Bond Yield: 5.54
 
-+1y     6079919330  4487500000  ...      5035929850  0.2073
+2025-07-01 15:00:56,304 INFO [ThreadPoolExecutor-0_3] main: Ticker: AAPL, Valuation (Growth Rate): 106.06
 
+2025-07-01 15:00:56,304 INFO [ThreadPoolExecutor-0_3] main: Ticker: AAPL, Valuation (Sales Growth Rate): 79.98
 
-[4 rows x 6 columns]
+2025-07-01 15:00:56,328 INFO [ThreadPoolExecutor-0_2] main: Valuation inputs for META - EPS: 25.61, 1Y Growth Rate: 11.690000000000001, 1Y Sales Growth Rate: 13.68, Bond Yield: 5.54
 
-INFO:main:Valuation inputs for FSLR - EPS: 11.78, 1Y Growth Rate: 57.199999999999996, 1Y Sales Growth Rate: 20.729999, Bond Yield: 5.54
+2025-07-01 15:00:56,328 INFO [ThreadPoolExecutor-0_2] main: Ticker: META, Valuation (Growth Rate): 499.04
 
-INFO:main:Ticker: FSLR, Valuation (Growth Rate): 868.23
+2025-07-01 15:00:56,328 INFO [ThreadPoolExecutor-0_2] main: Ticker: META, Valuation (Sales Growth Rate): 559.76
 
-INFO:main:Ticker: FSLR, Valuation (Sales Growth Rate): 356.42
+2025-07-01 15:00:57,180 INFO [ThreadPoolExecutor-0_1] main: Valuation inputs for FSLR - EPS: 11.77, 1Y Growth Rate: 56.86, 1Y Sales Growth Rate: 20.799999, Bond Yield: 5.54
+
+2025-07-01 15:00:57,181 INFO [ThreadPoolExecutor-0_1] main: Ticker: FSLR, Valuation (Growth Rate): 862.73
+
+2025-07-01 15:00:57,181 INFO [ThreadPoolExecutor-0_1] main: Ticker: FSLR, Valuation (Sales Growth Rate): 357.09
+
+2025-07-01 15:00:57,203 INFO [AnyIO worker thread] main: Async processing completed in 1.26 seconds.
+
 ```
 
 </details>
