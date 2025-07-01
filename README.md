@@ -1527,3 +1527,91 @@ giving the impression that everything is executing serially. After just increasi
 # Redesign
 
 I'm attempting to make this application more accessible by setting up an API server on the custom host. I want to be able to hit this endpoint from my phone via postman or some other application. I want the endpoint to trigger an asynchronous job that computes the valuations and outputs them to Kafka. I want to visualize the kafka messages via Grafana or some other built in dashboard. Incorporating the phone will make this more usable and helpful to me in my investing process.
+
+
+<details>
+<summary>Sample FastAPI Logs 6/30/25</summary>
+
+```
+INFO:     Started server process [1]
+
+INFO:     Waiting for application startup.
+
+INFO:     Application startup complete.
+
+INFO:     Uvicorn running on http://0.0.0.0:8000⁠
+
+INFO:     XXX - "POST /compute_valuations HTTP/1.1" 200 OK
+
+INFO:main:Growth_estimates for GOOGL:         stockTrend  indexTrend
+
+period                        
+
+0q          0.1518      0.1313
+
++1q         0.0605      0.0220
+
+0y          0.1941      0.0741
+
++1y         0.0623      0.1407
+
+LTG            NaN      0.1220
+
+INFO:main:Revenue estimate for GOOGL:                  avg           low  ...  yearAgoRevenue  growth
+
+period                              ...                        
+
+0q       93733128610   91693806000  ...     84742000000  0.1061
+
++1q      97159559730   92558000000  ...     88268000000  0.1007
+
+0y      387817316750  379231000000  ...    350018000000  0.1080
+
++1y     428897932000  408486000000  ...    387817316750  0.1059
+
+
+[4 rows x 6 columns]
+
+INFO:main:Valuation inputs for GOOGL - EPS: 8.96, 1Y Growth Rate: 6.23, 1Y Sales Growth Rate: 10.5900005, Bond Yield: 5.54
+
+INFO:main:Ticker: GOOGL, Valuation (Growth Rate): 116.32
+
+INFO:main:Ticker: GOOGL, Valuation (Sales Growth Rate): 162.86
+
+INFO:main:Growth_estimates for FSLR:         stockTrend  indexTrend
+
+period                        
+
+0q         -0.1697      0.1313
+
++1q         0.5162      0.0220
+
+0y          0.2709      0.0741
+
++1y         0.5720      0.1407
+
+LTG            NaN      0.1220
+
+INFO:main:Revenue estimate for FSLR:                avg         low  ...  yearAgoRevenue  growth
+
+period                          ...                        
+
+0q      1027822090   911400000  ...      1010482000  0.0172
+
++1q     1388500160  1175000000  ...       887668000  0.5642
+
+0y      5035929850  4509568000  ...      4206289000  0.1972
+
++1y     6079919330  4487500000  ...      5035929850  0.2073
+
+
+[4 rows x 6 columns]
+
+INFO:main:Valuation inputs for FSLR - EPS: 11.78, 1Y Growth Rate: 57.199999999999996, 1Y Sales Growth Rate: 20.729999, Bond Yield: 5.54
+
+INFO:main:Ticker: FSLR, Valuation (Growth Rate): 868.23
+
+INFO:main:Ticker: FSLR, Valuation (Sales Growth Rate): 356.42
+```
+
+</details>
