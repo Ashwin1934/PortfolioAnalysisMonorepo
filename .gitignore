@@ -1,3 +1,3 @@
 *.class
-config.properties
+/Config/config.properties
 portfolio-analysis-project-efa0a394cf46.json
