@@ -1629,4 +1629,4 @@ INFO:     XXX.XX.X.X:34638 - "POST /compute_valuations_async HTTP/1.1" 200 OK
 </details>
 ## Sample output of Kafka message with valuations for FirstSolar. 
 
-![Alt text](Images/KafkaValuationMessage.png)
+![Alt text](Images/KafkaValuationMessage.PNG)
