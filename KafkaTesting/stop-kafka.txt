@@ -1,0 +1,9 @@
+@echo off
+echo Stopping Kafka Broker...
+call "C:\kafka\bin\windows\kafka-server-stop.bat" "C:\kafka\config\server.properties"
+
+echo Stopping ZooKeeper...
+call "C:\kafka\bin\windows\zookeeper-server-stop.bat" "C:\kafka\config\zookeeper.properties"
+
+echo Shutdown commands issued.
+pause
