@@ -4,6 +4,7 @@ import finnhub
 import time
 import logging
 from pathlib import Path
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -26,7 +27,11 @@ TICKER_FILE = Path("testTickers.txt") # TODO: pull from a central file used by b
 def on_startup():
     global executor, finnhub_client
     executor = ThreadPoolExecutor(max_workers=4)
-    finnhub_client = finnhub.Client(api_key="YOUR_API_KEY") #TODO add in API Key in a secure way to be used in container
+    # Read API key from env
+    API_KEY = os.getenv("FINNHUB_API_KEY")
+    if not API_KEY:
+        raise RuntimeError("Missing FINNHUB_API_KEY environment variable!")
+    finnhub_client = finnhub.Client(api_key=API_KEY)
     logger.info("🚀 Executor + Finnhub client initialized")
 
 @app.on_event("shutdown")
