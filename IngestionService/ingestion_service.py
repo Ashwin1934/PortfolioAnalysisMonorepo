@@ -66,15 +66,20 @@ def fetch_and_process_news(tickers: list[str]):
     global executor, finnhub_client
     for i, ticker in enumerate(tickers):
         try:
+            # Fetch news (blocking call)
             news = finnhub_client.company_news(
                 ticker,
                 _from="2025-08-20",
                 to="2025-08-27"
             )
+
+            # Conduct processing work in parallel with API fetching. This is by design to meet the rate limit of 60 calls/min
             executor.submit(process_news, ticker, news)
             logger.info(f"✅ Submitted {len(news)} news items for {ticker}")
         except Exception as e:
             logger.error(f"❌ Error fetching news for {ticker}: {e}")
+
+        # Respect 2s delay between API calls, unless it’s the last ticker
         if i < len(tickers) - 1:
             logger.info("⏳ Waiting 2 seconds before next request...")
             time.sleep(2)
