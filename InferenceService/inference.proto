@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package InferenceService;
+
+// The request includes headline text and some metadata
+message InferenceRequest {
+  string headline = 1;
+  string ticker = 2;
+  string source = 3;
+  string timestamp = 4; // ISO 8601 or epoch string
+}
+
+// The response includes the model’s prediction and maybe confidence
+message InferenceResponse {
+  string ticker = 1;
+  string headline = 2;
+  float score = 3; // e.g. sentiment score
+  string label = 4; // e.g. "positive" / "negative" / "neutral"
+}
+
+// The inference service definition
+// Run this command to regenerate the gRPC python stubs which will be extended later: 
+// python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. inference.proto
+service InferenceService {
+  rpc RunInference (InferenceRequest) returns (InferenceResponse);
+}
