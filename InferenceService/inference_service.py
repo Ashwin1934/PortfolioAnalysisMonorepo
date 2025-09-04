@@ -3,9 +3,17 @@ from concurrent import futures
 import threading
 import time
 import torch
+import logging
 
 import inference_pb2
 import inference_pb2_grpc
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(threadName)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 
 class InferenceService(inference_pb2_grpc.InferenceServiceServicer):
 
@@ -18,6 +26,8 @@ class InferenceService(inference_pb2_grpc.InferenceServiceServicer):
     
     def RunInference(self, request, context):
         # TODO run inference from the model, populate response object
+        logger.info("Received inference request")
+
         response = inference_pb2.InferenceResponse()
         return response
 
