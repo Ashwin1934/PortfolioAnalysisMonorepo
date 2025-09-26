@@ -6,6 +6,7 @@ import time
 import json
 from confluent_kafka import Producer
 import datetime
+from db_utils import PostgresDB
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,16 +14,80 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 app = FastAPI()
-producer = Producer({
-    'bootstrap.servers': 'host.docker.internal:9092',
-    'acks': 'all',                # Wait for all replicas to acknowledge
-    'linger.ms': 10,              # Wait up to 10ms to batch messages
-    'batch.num.messages': 1000,   # Batch up to 1000 messages
-    'enable.idempotence': True    # Ensure no duplicates
-})
+
+# SQL Queries
+SQL_QUERIES = {
+    "get_ticker_history": """
+        SELECT 
+            ticker,
+            valuation_growth,
+            valuation_sales_growth,
+            eps,
+            avg_price_target,
+            recommendation_key,
+            market_price,
+            growth_rate,
+            sales_growth_rate,
+            bond_yield,
+            created_at,
+            valuation_date
+        FROM stock_valuations 
+        WHERE ticker = $1
+        ORDER BY created_at DESC
+    """,
+    "insert_valuation": """
+        INSERT INTO stock_valuations (
+            ticker, valuation_growth, valuation_sales_growth, eps,
+            avg_price_target, recommendation_key, market_price,
+            growth_rate, sales_growth_rate, bond_yield
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    """
+}
+
+# Global variables for shared resources
+producer = None
+db = None
+
+@app.on_event("startup")
+async def startup_event():
+    global producer, db
+    # Initialize Kafka producer
+    producer = Producer({
+        'bootstrap.servers': 'host.docker.internal:9092',
+        'acks': 'all',                # Wait for all replicas to acknowledge
+        'linger.ms': 10,              # Wait up to 10ms to batch messages
+        'batch.num.messages': 1000,   # Batch up to 1000 messages
+        'enable.idempotence': True    # Ensure no duplicates
+    })
+    logger.info("Kafka producer initialized")
+
+    # Initialize PostgreSQL connection pool
+    db = PostgresDB(
+        host="localhost",  # Update these values based on your PostgreSQL configuration
+        port=5432,
+        user="stock_user",
+        password="stonks",  # Use environment variables in production
+        database="stockdata"
+    )
+    await db.create_pool(min_size=2, max_size=10)
+    logger.info("PostgreSQL connection pool initialized")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global producer, db
+    # Clean up Kafka producer
+    if producer:
+        producer.flush()
+        producer.close()
+        logger.info("Kafka producer closed")
+    
+    # Clean up PostgreSQL connection pool
+    if db:
+        await db.close_pool()
+        logger.info("PostgreSQL connection pool closed")
 
 # Fetch and calculate valuation
-def fetch_and_calculate_valuation(ticker, bond_yield, kafka_topic=None):
+async def fetch_and_calculate_valuation(ticker, bond_yield, kafka_topic=None):
     try:
         stock = yf.Ticker(ticker)
         stock_info = stock.info
@@ -72,11 +137,33 @@ def fetch_and_calculate_valuation(ticker, bond_yield, kafka_topic=None):
             "eps": ttm_eps,
             "avg_price_target": avg_price_target,
             "recommendation_key": recommendation_key,
-            "market_price": market_price,  # Add to result
+            "market_price": market_price,
             "growth_rate": g_rate,
             "sales_growth_rate": sales_g_rate,
             "bond_yield": bond_yield,
         }
+
+        # Store in PostgreSQL
+        if db and db._pool:
+            try:
+                await db.execute(
+                    SQL_QUERIES["insert_valuation"], 
+                ticker, 
+                result["valuation_growth"],
+                result["valuation_sales_growth"],
+                result["eps"],
+                result["avg_price_target"],
+                result["recommendation_key"],
+                result["market_price"],
+                result["growth_rate"],
+                result["sales_growth_rate"],
+                result["bond_yield"]
+                )
+                logger.info("Data stored in PostgreSQL for ticker %s", ticker)
+            except Exception as e:
+                logger.error("Error storing data in PostgreSQL for %s: %s", ticker, e)
+
+        # Send to Kafka if topic is provided
         if kafka_topic:
             # Combine ticker and current date as key (e.g., "AAPL-2025-07-01")
             key = f"{ticker}-{datetime.date.today().isoformat()}"
@@ -154,4 +241,39 @@ async def compute_valuations_async(background_tasks: BackgroundTasks):
     
     # Return an immediate response
     return {"message": "Async Valuation computation triggered. Results will be printed to the console."}
+
+@app.get("/ticker/{ticker}")
+async def get_ticker(ticker: str):
+    """
+    Get historical valuation data for a specific ticker from PostgreSQL.
+    
+    Args:
+        ticker (str): The stock ticker symbol (e.g., AAPL, MSFT)
+        
+    Returns:
+        dict: A dictionary containing the ticker's historical valuation data
+    """
+    logger.info(f"Fetching historical data for ticker: {ticker}")
+    
+    try:
+        # Query all records for the given ticker, ordered by creation date
+        rows = await db.fetch(SQL_QUERIES["get_ticker_history"], ticker.upper())
+        
+        if not rows:
+            logger.info(f"No historical data found for ticker: {ticker}")
+            return {"ticker": ticker, "message": "No historical data found", "valuations": []}
+            
+        logger.info(f"Found {len(rows)} historical records for ticker: {ticker}")
+        return {
+            "ticker": ticker,
+            "message": f"Found {len(rows)} historical records",
+            "valuations": rows
+        }
+            
+    except Exception as e:
+        logger.error(f"Error fetching data for ticker {ticker}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching data: {str(e)}"
+        )
 
