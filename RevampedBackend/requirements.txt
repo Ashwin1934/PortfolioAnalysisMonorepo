@@ -3,3 +3,4 @@ uvicorn
 yfinance
 confluent-kafka
 asyncpg
+asyncio

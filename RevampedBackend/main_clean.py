@@ -8,6 +8,8 @@ from confluent_kafka import Producer
 import datetime
 from db_utils import PostgresDB
 import os
+import asyncio
+import queue
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,6 +17,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 app = FastAPI()
+
+BATCH_SIZE = 2 # Number of tickers per batch, increase later
+BATCH_TIMEOUT = 2.0 # Max seconds to wait for batch to fill
 
 # SQL Queries
 SQL_QUERIES = {
@@ -88,7 +93,7 @@ async def shutdown_event():
         logger.info("PostgreSQL connection pool closed")
 
 # Fetch and calculate valuation
-async def fetch_and_calculate_valuation(ticker, bond_yield, kafka_topic=None):
+async def fetch_and_calculate_valuation(ticker, bond_yield, result_queue: queue.Queue, kafka_topic=None):
     try:
         stock = yf.Ticker(ticker)
         stock_info = stock.info
@@ -144,25 +149,9 @@ async def fetch_and_calculate_valuation(ticker, bond_yield, kafka_topic=None):
             "bond_yield": bond_yield,
         }
 
-        # Store in PostgreSQL
-        if db and db._pool:
-            try:
-                await db.execute(
-                    SQL_QUERIES["insert_valuation"], 
-                ticker, 
-                result["valuation_growth"],
-                result["valuation_sales_growth"],
-                result["eps"],
-                result["avg_price_target"],
-                result["recommendation_key"],
-                result["market_price"],
-                result["growth_rate"],
-                result["sales_growth_rate"],
-                result["bond_yield"]
-                )
-                logger.info("Data stored in PostgreSQL for ticker %s", ticker)
-            except Exception as e:
-                logger.error("Error storing data in PostgreSQL for %s: %s", ticker, e)
+        # Add to queue instead of inserting directly
+        result_queue.put(result)
+        logger.info(f"Queued valuation result for {ticker}")
 
         # # Send to Kafka if topic is provided
         # if kafka_topic:
@@ -177,21 +166,59 @@ async def fetch_and_calculate_valuation(ticker, bond_yield, kafka_topic=None):
 
 
 # Function to process all tickers in the background (async/threaded)
-def process_valuations_async(bond_yield, file_path="tickers.txt", kafka_topic=None):
+async def process_valuations_async(bond_yield, file_path="tickers.txt", kafka_topic=None):
+    """
+    Main orchestration function that:
+    1. Creates a thread-safe queue
+    2. Starts the async consumer task
+    3. Uses ThreadPoolExecutor for valuation producers
+    4. Waits for completion and cleanup
+    
+    Args:
+        bond_yield (float): Current bond yield for valuation calculations
+        file_path: Path to file containing ticker symbols
+    """
+    
     start_time = time.perf_counter()
     try:
         with open(file_path, 'r') as file:
             tickers = [line.strip() for line in file.readlines()]
+
+        # Create thread safe queue and stop event
+        result_queue = queue.Queue()
+        stop_event = asyncio.Event()
+
+        # Start the async consumer task in the event loop
+        consumer_task = asyncio.create_task(queue_consumer(result_queue, stop_event))
         
-        max_workers = min(os.cpu_count() * 2, 20)  # Cap at 20
+        max_workers = min(os.cpu_count() * 2, 20)  # Cap at 20, TODO tune this based on system
+
+        loop = asyncio.get_event_loop()
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit tasks for each ticker to the executor
             futures = [executor.submit(fetch_and_calculate_valuation, ticker, bond_yield, kafka_topic) for ticker in tickers]
-            
-            # Wait for all futures to complete
-            for future in futures:
-                future.result()
+            futures = [
+                loop.run_in_executor(
+                    executor,
+                    fetch_and_calculate_valuation,
+                    ticker,
+                    bond_yield,
+                    result_queue
+                )
+                for ticker in tickers
+            ]
+            # Wait for all producers to complete
+            await asyncio.gather(*futures)
+
+        logger.info("All producers finished.")
         #producer.flush()  # Ensure all messages are sent to Kafka ; flush once at the end to ensure all messages are sent
+
+        # Signal the consumer to finish processing remaining items
+        stop_event.set()
+
+        # Wait for consumer to finish processing remaining items
+        await consumer_task
+
         elapsed = time.perf_counter() - start_time
         logger.info("Async processing completed in %.2f seconds.", elapsed)
     
@@ -248,4 +275,87 @@ async def get_ticker(ticker: str):
             status_code=500,
             detail=f"Error fetching data: {str(e)}"
         )
+async def queue_consumer(result_queue: queue.Queue, stop_event:asyncio.Event):
+    """
+    Asynchronous consumer that batches results from the queue and performs batch inserts.
+    Runs until stop_event is set AND queue is empty.
+    
+    Args:
+        result_queue (queue.Queue): Thread-safe queue containing valuation results
+        stop_event (asyncio.Event): Async event signaling producers have finished
+    """
+    logger.info("Queue consumer started")
+    batch = []
+    last_insert_time = time.time()
+
+    while True:
+        try:
+            # Non blocking get from queue with timeout
+            # Check queue in thread safe fashion from async context
+            item = await asyncio.get_event_loop().run_in_executor(
+                None, 
+                result_queue.get,
+                True,
+                0.5
+            )
+            batch.append(item)
+            result_queue.task_done()
+
+            # Insert batch if it reaches size limit or timeout
+            current_time = time.time()
+            if (len(batch) >= BATCH_SIZE or (current_time - last_insert_time) >= BATCH_TIMEOUT):
+                await batch_insert_valuations(batch)
+                batch.clear()
+                last_insert_time = current_time
+        except queue.Empty:
+            # Check if we should stop (producers finished AND queue is empty)
+            if stop_event.is_set() and result_queue.empty():
+                # Insert remaining valuations in batch
+                if batch:
+                    await batch_insert_valuations(batch)
+                    batch.clear()
+                    logger.info(f"Inserted final batch of {len(batch)} records before stopping.")
+                break
+            current_time = time.time()
+            if (batch and (current_time - last_insert_time) >= BATCH_TIMEOUT):
+                await batch_insert_valuations(batch)
+                batch.clear()
+                last_insert_time = current_time
+        except Exception as e:
+            logger.error(f"Error in queue consumer: {e}")
+    logger.info("Queue consumer finished")
+
+async def batch_insert_valuations(batch: List[Dict[str, any]]):
+    """
+    Perform batch insertion to PostgreSQL using asyncpg's executemany
+    
+    Args:
+        batch (List[Dict[str, any]]): List of valuation records to insert
+    """
+    if not batch:
+        return
+    
+    try:
+        # Prepare data for executemany - list of tuples
+        records = [
+            (
+                item["ticker"],
+                item["valuation_growth"],
+                item["valuation_sales_growth"],
+                item["eps"],
+                item["avg_price_target"],
+                item["recommendation_key"],
+                item["market_price"],
+                item["growth_rate"],
+                item["sales_growth_rate"],
+                item["bond_yield"]
+            )
+            for item in batch
+        ]
+
+        # Use executemany for batch insert
+        await db.executemany(SQL_QUERIES["insert_valuation"], records)
+        logger.info(f"Batch inserted {len(batch)} records into PostgreSQL")
+    except Exception as e:
+        logger.error(f"Error during batch insert: {e}")
 
