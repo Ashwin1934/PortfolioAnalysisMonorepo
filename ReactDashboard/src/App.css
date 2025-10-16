@@ -1,0 +1,88 @@
+.App {
+  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+h1 {
+  margin-bottom: 3rem;
+  color: #61dafb;
+}
+
+.button-container {
+  display: flex;
+  gap: 3rem;
+  margin-bottom: 2rem;
+}
+
+.button-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.control-button {
+  padding: 1.5rem 3rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.button-1 {
+  background-color: #61dafb;
+  color: #282c34;
+}
+
+.button-1:hover {
+  background-color: #4fa8c5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.button-1:active {
+  transform: translateY(0);
+}
+
+.button-2 {
+  background-color: #90ee90;
+  color: #282c34;
+}
+
+.button-2:hover {
+  background-color: #7cd87c;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.button-2:active {
+  transform: translateY(0);
+}
+
+.counter {
+  font-size: 1rem;
+  color: #61dafb;
+  margin: 0;
+}
+
+.hint {
+  font-size: 0.9rem;
+  color: #888;
+  margin-top: 2rem;
+}
