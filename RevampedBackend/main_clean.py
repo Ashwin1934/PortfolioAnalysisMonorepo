@@ -10,6 +10,7 @@ from db_utils import PostgresDB
 import os
 import asyncio
 import queue
+from typing import List, Dict
 
 logging.basicConfig(
     level=logging.INFO,
@@ -69,14 +70,22 @@ async def startup_event():
 
     # Initialize PostgreSQL connection pool
     db = PostgresDB(
-        host="localhost",  # Update these values based on your PostgreSQL configuration
+        host="postgres",  # Update these values based on your PostgreSQL configuration
         port=5432,
         user="stock_user",
         password="stonks",  # Use environment variables in production
         database="stockdata"
     )
-    await db.create_pool(min_size=2, max_size=10)
-    logger.info("PostgreSQL connection pool initialized")
+    asyncio.create_task(initialize_database())
+    logger.info("App startup complete")
+
+async def initialize_database():
+    """Background task to initialize database connection"""
+    global db
+    try:
+        await db.create_pool(min_size=2, max_size=10, max_retries=5, retry_interval=5)
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
