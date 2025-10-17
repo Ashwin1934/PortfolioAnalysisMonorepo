@@ -28,9 +28,9 @@ function App() {
       console.log('Compute response:', data);
       
       if (response.ok) {
-        console.log('✓ Valuations computed successfully');
+        console.log('✓ Valuations triggered successfully');
       } else {
-        console.error('✗ Error computing valuations:', data);
+        console.error('✗ Error kicking off valuations:', data);
       }
     } catch (err) {
       console.error('✗ Network error:', err);
@@ -62,9 +62,12 @@ function App() {
       if (response.ok) {
         console.log('Ticker data:', data);
         // Sort by created_at descending (most recent first)
-        const sorted = Array.isArray(data) 
-          ? [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-          : [];
+        const valuationsArray = data.valuations || [];
+
+        // Sort by created_at descending (most recent first)
+        const sorted = [...valuationsArray].sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at));
+
         setValuations(sorted);
       } else {
         setError(data.detail || 'Ticker not found');
@@ -145,9 +148,9 @@ function App() {
                     <td>${val.eps?.toFixed(2) || 'N/A'}</td>
                     <td>${val.avg_price_target?.toFixed(2) || 'N/A'}</td>
                     <td>{val.recommendation_key || 'N/A'}</td>
-                    <td>{val.growth_rate ? `${(val.growth_rate * 100).toFixed(2)}%` : 'N/A'}</td>
-                    <td>{val.sales_growth_rate ? `${(val.sales_growth_rate * 100).toFixed(2)}%` : 'N/A'}</td>
-                    <td>{val.bond_yield ? `${(val.bond_yield * 100).toFixed(2)}%` : 'N/A'}</td>
+                    <td>{val.growth_rate ? `${(val.growth_rate).toFixed(2)}%` : 'N/A'}</td>
+                    <td>{val.sales_growth_rate ? `${(val.sales_growth_rate).toFixed(2)}%` : 'N/A'}</td>
+                    <td>{val.bond_yield ? `${(val.bond_yield).toFixed(2)}%` : 'N/A'}</td>
                   </tr>
                 ))}
               </tbody>
