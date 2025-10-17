@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:18.0
+    container_name: postgres
+    environment:
+      POSTGRES_USER: stock_user
+      POSTGRES_PASSWORD: stonks
+      POSTGRES_DB: stockdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/18/docker
+    ports:
+      - "5432:5432"
+    networks:
+      - portfolio-network
+
+  fastapi:
+    build:
+      context: ../RevampedBackend
+      dockerfile: Dockerfile
+    container_name: valuation_api_server
+    environment:
+      DATABASE_HOST: postgres
+    ports:
+      - "8100:8000"
+    depends_on:
+      - postgres
+    networks:
+      - portfolio-network
+  
+  dashboard:
+    build:
+      context: ../ReactDashboard
+      dockerfile: Dockerfile
+    container_name: valuation_dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - fastapi
+    networks:
+      - portfolio-network
+
+networks:
+  portfolio-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

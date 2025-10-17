@@ -39,7 +39,8 @@ multiple connections efficiently.
 """
 
 import asyncpg
-from typing import List, Dict, Any
+import asyncio
+from typing import List, Dict, Any, Optional
 import logging
 
 logging.basicConfig(
@@ -60,30 +61,39 @@ class PostgresDB:
         self.conn_params = kwargs if not dsn else None
         self._pool = None
 
-    async def create_pool(self, min_size: int = 2, max_size: int = 10):
-        """Create a connection pool.
+    async def create_pool(self, min_size: int = 2, max_size: int = 10, max_retries: int = 5, retry_interval: int = 5):
+        """Create a connection pool with retry logic.
         
         Args:
-            min_size (int): Minimum number of connections in the pool
-            max_size (int): Maximum number of connections in the pool
+            min_size (int): Minimum number of connections
+            max_size (int): Maximum number of connections
+            max_retries (int): Maximum number of connection attempts
+            retry_interval (int): Seconds to wait between retries
         """
-        try:
-            if self.dsn:
-                self._pool = await asyncpg.create_pool(
-                    dsn=self.dsn,
-                    min_size=min_size,
-                    max_size=max_size
-                )
-            else:
-                self._pool = await asyncpg.create_pool(
-                    **self.conn_params,
-                    min_size=min_size,
-                    max_size=max_size
-                )
-            logger.info("Database connection pool created successfully")
-        except Exception as e:
-            logger.error(f"Error creating connection pool: {e}")
-            raise
+        for attempt in range(max_retries):
+            try:
+                if self.dsn:
+                    self._pool = await asyncpg.create_pool(
+                        dsn=self.dsn,
+                        min_size=min_size,
+                        max_size=max_size
+                    )
+                else:
+                    self._pool = await asyncpg.create_pool(
+                        **self.conn_params,
+                        min_size=min_size,
+                        max_size=max_size
+                    )
+                logger.info("Database connection pool created successfully")
+                return
+            except Exception as e:
+                logger.warning(f"Attempt {attempt + 1}/{max_retries} failed: {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_interval} seconds...")
+                    await asyncio.sleep(retry_interval)
+                else:
+                    logger.error("Failed to create database pool after all retries")
+                    self._pool = None
 
     async def close_pool(self):
         """Close the connection pool."""

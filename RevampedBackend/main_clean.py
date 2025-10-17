@@ -10,6 +10,7 @@ from db_utils import PostgresDB
 import os
 import asyncio
 import queue
+from typing import List, Dict
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,6 +48,26 @@ SQL_QUERIES = {
             avg_price_target, recommendation_key, market_price,
             growth_rate, sales_growth_rate, bond_yield
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    """,
+    "create_table": """
+    CREATE TABLE IF NOT EXISTS stock_valuations (
+        id SERIAL PRIMARY KEY,
+        ticker VARCHAR(10) NOT NULL,
+        valuation_growth NUMERIC(15, 2),
+        valuation_sales_growth NUMERIC(15, 2),
+        eps NUMERIC(15, 4),
+        avg_price_target NUMERIC(15, 2),
+        recommendation_key VARCHAR(20),
+        market_price NUMERIC(15, 2),
+        growth_rate NUMERIC(10, 2),
+        sales_growth_rate NUMERIC(10, 2),
+        bond_yield NUMERIC(10, 4),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        valuation_date DATE DEFAULT CURRENT_DATE
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_ticker ON stock_valuations(ticker);
+    CREATE INDEX IF NOT EXISTS idx_created_at ON stock_valuations(created_at DESC);
     """
 }
 
@@ -69,14 +90,36 @@ async def startup_event():
 
     # Initialize PostgreSQL connection pool
     db = PostgresDB(
-        host="localhost",  # Update these values based on your PostgreSQL configuration
+        host="postgres",  # Update these values based on your PostgreSQL configuration
         port=5432,
         user="stock_user",
         password="stonks",  # Use environment variables in production
         database="stockdata"
     )
-    await db.create_pool(min_size=2, max_size=10)
-    logger.info("PostgreSQL connection pool initialized")
+    asyncio.create_task(initialize_database())
+    logger.info("App startup complete")
+
+async def initialize_database():
+    """Background task to initialize database connection"""
+    global db
+    try:
+        await db.create_pool(min_size=2, max_size=10, max_retries=5, retry_interval=5)
+
+        await create_table_if_not_exists()
+        logger.info("Database schema initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+
+async def create_table_if_not_exists():
+    """Create the stock_valuations table if it doesn't exist"""
+    create_table_query = SQL_QUERIES["create_table"]
+    
+    try:
+        await db.execute(create_table_query)
+        logger.info("Table 'stock_valuations' verified/created successfully")
+    except Exception as e:
+        logger.error(f"Error creating table: {e}")
+        raise
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -93,7 +136,7 @@ async def shutdown_event():
         logger.info("PostgreSQL connection pool closed")
 
 # Fetch and calculate valuation
-async def fetch_and_calculate_valuation(ticker, bond_yield, result_queue: queue.Queue, kafka_topic=None):
+def fetch_and_calculate_valuation(ticker, bond_yield, result_queue: queue.Queue, kafka_topic=None):
     try:
         stock = yf.Ticker(ticker)
         stock_info = stock.info
@@ -196,14 +239,14 @@ async def process_valuations_async(bond_yield, file_path="tickers.txt", kafka_to
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit tasks for each ticker to the executor
-            futures = [executor.submit(fetch_and_calculate_valuation, ticker, bond_yield, kafka_topic) for ticker in tickers]
             futures = [
                 loop.run_in_executor(
                     executor,
                     fetch_and_calculate_valuation,
                     ticker,
                     bond_yield,
-                    result_queue
+                    result_queue,
+                    kafka_topic
                 )
                 for ticker in tickers
             ]
