@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import './App.css';
+import ValuationChart from './components/ValuationChart';
+import './components/ValuationChart.css';
 
 function App() {
   const [isComputeDisabled, setIsComputeDisabled] = useState(false);
@@ -116,6 +118,11 @@ function App() {
 
         {/* Loading State */}
         {loading && <p className="loading">Loading...</p>}
+
+        {/* Valuations Chart */}
+        {valuations.length > 1 && (
+          <ValuationChart valuations={valuations} />
+        )}
 
         {/* Valuations Table */}
         {valuations.length > 0 && (
