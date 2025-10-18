@@ -3,10 +3,9 @@ import yfinance as yf
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import time
-import json
 from confluent_kafka import Producer
-import datetime
 from db_utils import PostgresDB
+from event_bus import AsyncEventBus
 import os
 import asyncio
 import queue
@@ -74,6 +73,8 @@ SQL_QUERIES = {
 # Global variables for shared resources
 producer = None
 db = None
+event_bus = None
+under_valued_stocks = {}
 
 @app.on_event("startup")
 async def startup_event():
@@ -97,6 +98,10 @@ async def startup_event():
         database="stockdata"
     )
     asyncio.create_task(initialize_database())
+    event_bus = AsyncEventBus()
+    event_bus.subscribe(db_handler) # db_handler consumes from event bus and puts into queue for db insertion
+    event_bus.subscribe(valuation_handler) # valuation_handler consumes from event bus and checks for under-valued stocks
+    
     logger.info("App startup complete")
 
 async def initialize_database():
@@ -193,7 +198,8 @@ def fetch_and_calculate_valuation(ticker, bond_yield, result_queue: queue.Queue,
         }
 
         # Add to queue instead of inserting directly
-        result_queue.put(result)
+        context = {'queue', result_queue}
+        event_bus.publish_from_thread(result, asyncio.get_event_loop(), context)
         logger.info(f"Queued valuation result for {ticker}")
 
         # # Send to Kafka if topic is provided
@@ -318,6 +324,14 @@ async def get_ticker(ticker: str):
             status_code=500,
             detail=f"Error fetching data: {str(e)}"
         )
+    
+@app.get("/undervalued-stocks", response_model=List[Dict[str, any]])
+async def get_undervalued_stocks():
+    """
+    Returns a list of currently undervalued stocks and their valuation details
+    """
+    return [{"ticker": ticker, **details} for ticker, details in under_valued_stocks.items()]
+
 async def queue_consumer(result_queue: queue.Queue, stop_event:asyncio.Event):
     """
     Asynchronous consumer that batches results from the queue and performs batch inserts.
@@ -401,4 +415,43 @@ async def batch_insert_valuations(batch: List[Dict[str, any]]):
         logger.info(f"Batch inserted {len(batch)} records into PostgreSQL")
     except Exception as e:
         logger.error(f"Error during batch insert: {e}")
+
+def db_handler(valuation_result, context):
+    """Subscriber function to handle database insertion from event bus"""
+    queue = context.get('queue')
+    if queue:
+        queue.put(valuation_result)
+
+def valuation_handler(valuation_result, context):
+    """Subscriber function to handle under-valued checks from event bus"""
+    # Example: Check if valuation is under market price
+    market_price = valuation_result.get("market_price")
+    valuation_growth = valuation_result.get("valuation_growth")
+    valuation_sales_growth = valuation_result.get("valuation_sales_growth")
+    price_target = valuation_result.get("avg_price_target")
+    ticker = valuation_result.get("ticker")
+
+    good_value = False
+    great_value = False
+    if valuation_growth and market_price and valuation_growth > market_price:
+        good_value = True
+    if valuation_sales_growth and market_price and valuation_sales_growth > market_price:
+        good_value = True
+    if good_value and market_price and price_target and price_target > market_price:
+        great_value = True
+    
+    if good_value or great_value:
+        under_valued_stocks[ticker] = {
+            "rating": "great" if great_value else "good",
+            "valuation_growth": valuation_growth,
+            "valuation_sales_growth": valuation_sales_growth,
+            "market_price": market_price,
+            "price_target": price_target,
+            "ticker": ticker
+        }
+        if great_value:
+            logger.info(f"Great Value Stock Found: {ticker} | Market Price: {market_price}, Price Target: {price_target}, Valuation (Growth): {valuation_growth}, Valuation (Sales Growth): {valuation_sales_growth}")
+        else:
+            logger.info(f"Good Value Stock Found: {ticker} | Market Price: {market_price}, Price Target: {price_target}, Valuation (Growth): {valuation_growth}, Valuation (Sales Growth): {valuation_sales_growth}")
+    
 
