@@ -324,6 +324,14 @@ async def get_ticker(ticker: str):
             status_code=500,
             detail=f"Error fetching data: {str(e)}"
         )
+    
+@app.get("/undervalued-stocks", response_model=List[Dict[str, any]])
+async def get_undervalued_stocks():
+    """
+    Returns a list of currently undervalued stocks and their valuation details
+    """
+    return [{"ticker": ticker, **details} for ticker, details in under_valued_stocks.items()]
+
 async def queue_consumer(result_queue: queue.Queue, stop_event:asyncio.Event):
     """
     Asynchronous consumer that batches results from the queue and performs batch inserts.
@@ -432,16 +440,18 @@ def valuation_handler(valuation_result, context):
     if good_value and market_price and price_target and price_target > market_price:
         great_value = True
     
-    under_valued_stocks[ticker] = {
-        "rating": "great" if great_value else "good" if good_value else "overvalued",
-        "valuation_growth": valuation_growth,
-        "valuation_sales_growth": valuation_sales_growth,
-        "market_price": market_price,
-        "price_target": price_target
-    }
-    if great_value:
-        logger.info(f"Great Value Stock Found: {ticker} | Market Price: {market_price}, Price Target: {price_target}, Valuation (Growth): {valuation_growth}, Valuation (Sales Growth): {valuation_sales_growth}")
-    elif good_value:
-        logger.info(f"Good Value Stock Found: {ticker} | Market Price: {market_price}, Price Target: {price_target}, Valuation (Growth): {valuation_growth}, Valuation (Sales Growth): {valuation_sales_growth}")
+    if good_value or great_value:
+        under_valued_stocks[ticker] = {
+            "rating": "great" if great_value else "good",
+            "valuation_growth": valuation_growth,
+            "valuation_sales_growth": valuation_sales_growth,
+            "market_price": market_price,
+            "price_target": price_target,
+            "ticker": ticker
+        }
+        if great_value:
+            logger.info(f"Great Value Stock Found: {ticker} | Market Price: {market_price}, Price Target: {price_target}, Valuation (Growth): {valuation_growth}, Valuation (Sales Growth): {valuation_sales_growth}")
+        else:
+            logger.info(f"Good Value Stock Found: {ticker} | Market Price: {market_price}, Price Target: {price_target}, Valuation (Growth): {valuation_growth}, Valuation (Sales Growth): {valuation_sales_growth}")
     
 
