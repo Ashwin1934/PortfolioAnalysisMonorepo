@@ -1,0 +1,13 @@
+.valuation-chart {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.valuation-chart h3 {
+  color: #333;
+  margin-bottom: 20px;
+  text-align: center;
+}
