@@ -39,8 +39,10 @@ class AsyncEventBus:
     # registration of subscribers; each subscriber has a callback that fires when the eventbus receives an item
     def subscribe(self, subscriber):
         self.subscribers.append(subscriber)
+        logger.info(f"Subscriber {subscriber.__name__} registered")
 
     def publish_from_thread(self, item, loop, context=None):
         # threads hand off to the main event loop
+        logger.info(f"Publishing item {item} from thread to event bus")
         for subscriber in self.subscribers:
             loop.call_soon_threadsafe(subscriber, item)
