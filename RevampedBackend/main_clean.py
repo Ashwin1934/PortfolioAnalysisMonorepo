@@ -25,6 +25,14 @@ BATCH_TIMEOUT = 1.0 # Maximum seconds to wait before processing a partial batch
 
 # SQL Queries
 SQL_QUERIES = {
+    "get_all_tickers": """
+        SELECT ticker FROM stocks ORDER BY ticker
+    """,
+    "insert_ticker": """
+        INSERT INTO stocks (ticker) VALUES ($1)
+        ON CONFLICT (ticker) DO NOTHING
+        RETURNING ticker
+    """,
     "get_ticker_history": """
         SELECT 
             ticker,
@@ -78,6 +86,18 @@ db = None
 event_bus = None
 result_queue = queue.Queue()
 under_valued_stocks = {}
+tickers = []  # List to store tickers from database
+
+async def fetch_tickers():
+    """Fetch all tickers from the stocks table."""
+    global tickers
+    try:
+        rows = await db.fetch(SQL_QUERIES["get_all_tickers"])
+        tickers = [row['ticker'] for row in rows]
+        logger.info(f"Loaded {len(tickers)} tickers from database")
+    except Exception as e:
+        logger.error(f"Error fetching tickers from database: {e}")
+        tickers = []
 
 @app.on_event("startup")
 async def startup_event():
@@ -103,12 +123,15 @@ async def startup_event():
         password="stonks",  # Use environment variables in production
         database="stockdata"
     )
-    asyncio.create_task(initialize_database())
+    await initialize_database()
     
     # Initialize event bus
     event_bus = AsyncEventBus()
     event_bus.subscribe(db_handler) # db_handler consumes from event bus and puts into queue for db insertion
     event_bus.subscribe(valuation_handler) # valuation_handler consumes from event bus and checks for under-valued stocks
+    
+    # Fetch tickers from database
+    await fetch_tickers()
     
     logger.info("App startup complete")
 
@@ -225,7 +248,7 @@ def fetch_and_calculate_valuation(ticker, bond_yield, result_queue: queue.Queue,
 
 
 # Function to process all tickers in the background (async/threaded)
-async def process_valuations_async(bond_yield, file_path="tickers.txt", kafka_topic=None):
+async def process_valuations_async(bond_yield, kafka_topic=None):
     """
     Main orchestration function that:
     1. Uses global thread-safe queue
@@ -235,13 +258,12 @@ async def process_valuations_async(bond_yield, file_path="tickers.txt", kafka_to
     
     Args:
         bond_yield (float): Current bond yield for valuation calculations
-        file_path: Path to file containing ticker symbols
     """
     
     start_time = time.perf_counter()
     try:
-        with open(file_path, 'r') as file:
-            tickers = [line.strip() for line in file.readlines()]
+        if not tickers:
+            await fetch_tickers()  # Refresh tickers if list is empty
 
         # Clear any existing items in the queue
         while not result_queue.empty():
@@ -283,9 +305,6 @@ async def process_valuations_async(bond_yield, file_path="tickers.txt", kafka_to
 
         elapsed = time.perf_counter() - start_time
         logger.info("Async processing completed in %.2f seconds.", elapsed)
-    
-    except FileNotFoundError:
-        logger.error("File not found: %s", file_path)
     except Exception as e:
         logger.error("An error occurred: %s", e)
 
@@ -293,12 +312,10 @@ async def process_valuations_async(bond_yield, file_path="tickers.txt", kafka_to
 @app.post("/compute_valuations_async")
 async def compute_valuations_async(background_tasks: BackgroundTasks):
     bond_yield = 5.54  # 20-year corporate bond yield
-    ticker_path = r"C:\Users\ashud\NewProjects\PortfolioAnalysisMonorepo\portfolioTickersFull"
-    path = "testTickers.txt"
     kafka_topic = "valuation_results"
     
     # Schedule the background task
-    background_tasks.add_task(process_valuations_async, bond_yield, path)
+    background_tasks.add_task(process_valuations_async, bond_yield)
     
     # Return an immediate response
     return {"message": "Async Valuation computation triggered. Results will be printed to the console."}
@@ -358,6 +375,35 @@ async def get_undervalued_stocks():
         details_copy.pop('ticker', None)  # Remove ticker from details if it exists
         result.append(UndervaluedStock(ticker=ticker, **details_copy))
     return result
+
+class TickerRequest(BaseModel):
+    tickers: List[str]
+
+@app.post("/tickers")
+async def add_tickers(request: TickerRequest):
+    """
+    Add tickers to the database.
+    """
+    try:
+        # Convert tickers to uppercase and create tuples for insertion
+        processed_tickers = [ticker.strip().upper() for ticker in request.tickers]
+        ticker_tuples = [(ticker,) for ticker in processed_tickers]
+        
+        # Insert tickers
+        await db.executemany(SQL_QUERIES["insert_ticker"], ticker_tuples)
+        return {"message": f"Processed {len(request.tickers)} tickers"}
+            
+    except Exception as e:
+        logger.error(f"Error adding tickers: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error adding tickers: {str(e)}"
+        )
+    finally:
+        # Add new tickers to in-memory list
+        for ticker in processed_tickers:
+            if ticker not in tickers:
+                tickers.append(ticker)
 
 async def queue_consumer(result_queue: queue.Queue, stop_event:asyncio.Event):
     """
