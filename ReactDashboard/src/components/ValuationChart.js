@@ -5,9 +5,9 @@ const ValuationChart = ({ valuations }) => {
   // Process the data for the chart
   const chartData = valuations.map(val => ({
     date: new Date(val.created_at).toLocaleDateString(),
-    growthValuation: val.growth_rate_valuation,
-    salesValuation: val.sales_growth_valuation,
-    avgPriceTarget: val.average_price_target
+    growthValuation: val.valuation_growth,
+    salesValuation: val.valuation_sales_growth,
+    avgPriceTarget: val.avg_price_target
   })).reverse(); // Reverse to show oldest to newest
 
   return (

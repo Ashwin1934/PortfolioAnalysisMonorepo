@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import './App.css';
 import ValuationChart from './components/ValuationChart';
+import UndervaluedStocks from './components/UndervaluedStocks';
 import './components/ValuationChart.css';
 
 function App() {
+  const [activeTab, setActiveTab] = useState('valuation');
   const [isComputeDisabled, setIsComputeDisabled] = useState(false);
   const [ticker, setTicker] = useState('');
   const [valuations, setValuations] = useState([]);
@@ -83,10 +85,9 @@ function App() {
     }
   };
 
-  return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Valuation Dashboard</h1>
+  const renderValuationTab = () => (
+    <>
+      <h1>Valuation Dashboard</h1>
         
         {/* Compute Valuations Button */}
         <div className="compute-section">
@@ -164,6 +165,31 @@ function App() {
             </table>
           </div>
         )}
+    </>
+  );
+
+  return (
+    <div className="App">
+      <header className="App-header">
+        <div className="tab-navigation">
+          <button 
+            className={`tab-button ${activeTab === 'valuation' ? 'active' : ''}`}
+            onClick={() => setActiveTab('valuation')}
+          >
+            Valuation Analysis
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'undervalued' ? 'active' : ''}`}
+            onClick={() => setActiveTab('undervalued')}
+          >
+            Undervalued Stocks
+          </button>
+        </div>
+
+        <div className="tab-content">
+          {activeTab === 'valuation' && renderValuationTab()}
+          {activeTab === 'undervalued' && <UndervaluedStocks />}
+        </div>
       </header>
     </div>
   );

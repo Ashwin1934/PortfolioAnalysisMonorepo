@@ -13,6 +13,42 @@
   align-items: center;
   padding: 2rem;
   color: white;
+  width: 100%;
+}
+
+.tab-navigation {
+  border-bottom: 1px solid #61dafb;
+  margin-bottom: 20px;
+  padding: 0 20px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.tab-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: #61dafb;
+  transition: all 0.3s ease;
+}
+
+.tab-button:hover {
+  color: #90ee90;
+}
+
+.tab-button.active {
+  color: #90ee90;
+  border-bottom: 2px solid #90ee90;
+}
+
+.tab-content {
+  padding: 20px;
+  width: 100%;
 }
 
 h1 {
