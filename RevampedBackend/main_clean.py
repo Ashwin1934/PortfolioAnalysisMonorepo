@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
+from typing import List, Dict, Optional, Any
 import yfinance as yf
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -19,8 +20,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 app = FastAPI()
 
-BATCH_SIZE = 2 # Number of tickers per batch, increase later
-BATCH_TIMEOUT = 2.0 # Max seconds to wait for batch to fill
+BATCH_SIZE = 10 # Number of items to collect before batch insert
+BATCH_TIMEOUT = 1.0 # Maximum seconds to wait before processing a partial batch
 
 # SQL Queries
 SQL_QUERIES = {
@@ -83,6 +84,7 @@ SQL_QUERIES = {
 producer = None
 db = None
 event_bus = None
+result_queue = queue.Queue()
 under_valued_stocks = {}
 tickers = []  # List to store tickers from database
 
@@ -99,7 +101,10 @@ async def fetch_tickers():
 
 @app.on_event("startup")
 async def startup_event():
-    global producer, db
+    global producer, db, event_bus, result_queue
+    # Clear any items in the queue at startup
+    while not result_queue.empty():
+        result_queue.get()
     # Initialize Kafka producer
     # producer = Producer({
     #     'bootstrap.servers': 'host.docker.internal:9092',
@@ -119,6 +124,8 @@ async def startup_event():
         database="stockdata"
     )
     await initialize_database()
+    
+    # Initialize event bus
     event_bus = AsyncEventBus()
     event_bus.subscribe(db_handler) # db_handler consumes from event bus and puts into queue for db insertion
     event_bus.subscribe(valuation_handler) # valuation_handler consumes from event bus and checks for under-valued stocks
@@ -165,21 +172,21 @@ async def shutdown_event():
         logger.info("PostgreSQL connection pool closed")
 
 # Fetch and calculate valuation
-def fetch_and_calculate_valuation(ticker, bond_yield, result_queue: queue.Queue, kafka_topic=None):
+def fetch_and_calculate_valuation(ticker, bond_yield, result_queue: queue.Queue, main_loop, kafka_topic=None):
     try:
         stock = yf.Ticker(ticker)
         stock_info = stock.info
         growth_estimates = stock.growth_estimates
         revenue_estimate = stock.revenue_estimate
         
-        ttm_eps = stock_info.get('trailingEps', 'N/A')
-        avg_price_target = stock_info.get('targetMeanPrice', 'N/A')
+        ttm_eps = stock_info.get('trailingEps', None)
+        avg_price_target = stock_info.get('targetMeanPrice', None)
         recommendation_key = stock_info.get('recommendationKey', 'N/A')
         market_price = stock_info.get('regularMarketPrice', 'N/A')  # Add current/last market price
         one_year_growth_rate = growth_estimates.loc["+1y", "stockTrend"] if "+1y" in growth_estimates.index else 'N/A'
         one_year_sales_growth_rate = revenue_estimate.loc["+1y", "growth"] if "+1y" in revenue_estimate.index else 'N/A' # use sales growth as an alternate growth rate
 
-        if ttm_eps == 'N/A' or one_year_growth_rate == 'N/A':
+        if ttm_eps is None or one_year_growth_rate == 'N/A':
             logger.info("Insufficient data for %s", ticker)
             return
 
@@ -221,10 +228,12 @@ def fetch_and_calculate_valuation(ticker, bond_yield, result_queue: queue.Queue,
             "bond_yield": bond_yield,
         }
 
-        # Add to queue instead of inserting directly
-        context = {'queue', result_queue}
-        event_bus.publish_from_thread(result, asyncio.get_event_loop(), context)
-        logger.info(f"Queued valuation result for {ticker}")
+        try:
+            event_bus.publish_from_thread(result, main_loop)
+            logger.info(f"Queued valuation result for {ticker}")
+        except Exception as e:
+            logger.error(f"Failed to publish valuation for {ticker}: {e}")
+            logger.error("Error details:", exc_info=True)
 
         # # Send to Kafka if topic is provided
         # if kafka_topic:
@@ -242,7 +251,7 @@ def fetch_and_calculate_valuation(ticker, bond_yield, result_queue: queue.Queue,
 async def process_valuations_async(bond_yield, kafka_topic=None):
     """
     Main orchestration function that:
-    1. Creates a thread-safe queue
+    1. Uses global thread-safe queue
     2. Starts the async consumer task
     3. Uses ThreadPoolExecutor for valuation producers
     4. Waits for completion and cleanup
@@ -256,8 +265,10 @@ async def process_valuations_async(bond_yield, kafka_topic=None):
         if not tickers:
             await fetch_tickers()  # Refresh tickers if list is empty
 
-        # Create thread safe queue and stop event
-        result_queue = queue.Queue()
+        # Clear any existing items in the queue
+        while not result_queue.empty():
+            result_queue.get()
+            
         stop_event = asyncio.Event()
 
         # Start the async consumer task in the event loop
@@ -275,6 +286,7 @@ async def process_valuations_async(bond_yield, kafka_topic=None):
                     ticker,
                     bond_yield,
                     result_queue,
+                    loop,  # Pass the main event loop
                     kafka_topic
                 )
                 for ticker in tickers
@@ -343,12 +355,26 @@ async def get_ticker(ticker: str):
             detail=f"Error fetching data: {str(e)}"
         )
     
-@app.get("/undervalued-stocks", response_model=List[Dict[str, any]])
+class UndervaluedStock(BaseModel):
+    ticker: str
+    rating: str
+    valuation_growth: Optional[float]
+    valuation_sales_growth: Optional[float]
+    market_price: Optional[float]
+    price_target: Optional[float]
+
+@app.get("/undervalued-stocks", response_model=List[UndervaluedStock])
 async def get_undervalued_stocks():
     """
     Returns a list of currently undervalued stocks and their valuation details
     """
-    return [{"ticker": ticker, **details} for ticker, details in under_valued_stocks.items()]
+    result = []
+    for ticker, details in under_valued_stocks.items():
+        # Create a copy of details and remove the ticker to avoid duplicate
+        details_copy = details.copy()
+        details_copy.pop('ticker', None)  # Remove ticker from details if it exists
+        result.append(UndervaluedStock(ticker=ticker, **details_copy))
+    return result
 
 class TickerRequest(BaseModel):
     tickers: List[str]
@@ -439,7 +465,12 @@ async def batch_insert_valuations(batch: List[Dict[str, any]]):
     if not batch:
         return
     
+    logger.info(f"Batch insert: Processing batch of {len(batch)} records")
     try:
+        # Log the tickers being processed
+        tickers = [item.get('ticker') for item in batch]
+        logger.info(f"Batch insert: Processing tickers {tickers}")
+        
         # Prepare data for executemany - list of tuples
         records = [
             (
@@ -463,11 +494,10 @@ async def batch_insert_valuations(batch: List[Dict[str, any]]):
     except Exception as e:
         logger.error(f"Error during batch insert: {e}")
 
-def db_handler(valuation_result, context):
+def db_handler(valuation_result, context=None):
     """Subscriber function to handle database insertion from event bus"""
-    queue = context.get('queue')
-    if queue:
-        queue.put(valuation_result)
+    global result_queue
+    result_queue.put(valuation_result)
 
 def valuation_handler(valuation_result, context):
     """Subscriber function to handle under-valued checks from event bus"""
