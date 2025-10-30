@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from pydantic import BaseModel
 import yfinance as yf
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -25,6 +26,11 @@ BATCH_TIMEOUT = 2.0 # Max seconds to wait for batch to fill
 SQL_QUERIES = {
     "get_all_tickers": """
         SELECT ticker FROM stocks ORDER BY ticker
+    """,
+    "insert_ticker": """
+        INSERT INTO stocks (ticker) VALUES ($1)
+        ON CONFLICT (ticker) DO NOTHING
+        RETURNING ticker
     """,
     "get_ticker_history": """
         SELECT 
@@ -343,6 +349,35 @@ async def get_undervalued_stocks():
     Returns a list of currently undervalued stocks and their valuation details
     """
     return [{"ticker": ticker, **details} for ticker, details in under_valued_stocks.items()]
+
+class TickerRequest(BaseModel):
+    tickers: List[str]
+
+@app.post("/tickers")
+async def add_tickers(request: TickerRequest):
+    """
+    Add tickers to the database.
+    """
+    try:
+        # Convert tickers to uppercase and create tuples for insertion
+        processed_tickers = [ticker.strip().upper() for ticker in request.tickers]
+        ticker_tuples = [(ticker,) for ticker in processed_tickers]
+        
+        # Insert tickers
+        await db.executemany(SQL_QUERIES["insert_ticker"], ticker_tuples)
+        return {"message": f"Processed {len(request.tickers)} tickers"}
+            
+    except Exception as e:
+        logger.error(f"Error adding tickers: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error adding tickers: {str(e)}"
+        )
+    finally:
+        # Add new tickers to in-memory list
+        for ticker in processed_tickers:
+            if ticker not in tickers:
+                tickers.append(ticker)
 
 async def queue_consumer(result_queue: queue.Queue, stop_event:asyncio.Event):
     """
