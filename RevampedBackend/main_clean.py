@@ -351,7 +351,13 @@ async def get_undervalued_stocks():
     """
     Returns a list of currently undervalued stocks and their valuation details
     """
-    return [UndervaluedStock(ticker=ticker, **details) for ticker, details in under_valued_stocks.items()]
+    result = []
+    for ticker, details in under_valued_stocks.items():
+        # Create a copy of details and remove the ticker to avoid duplicate
+        details_copy = details.copy()
+        details_copy.pop('ticker', None)  # Remove ticker from details if it exists
+        result.append(UndervaluedStock(ticker=ticker, **details_copy))
+    return result
 
 async def queue_consumer(result_queue: queue.Queue, stop_event:asyncio.Event):
     """
