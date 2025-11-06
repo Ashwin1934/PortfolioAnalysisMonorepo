@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import './UndervaluedStocks.css';
+import { API_BASE_URL } from '../config';
 
 const UndervaluedStocks = () => {
     const [stocks, setStocks] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-
-    const API_BASE_URL = '/valuation-api';
 
     const fetchUndervaluedStocks = async () => {
         setLoading(true);
