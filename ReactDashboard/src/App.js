@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import './App.css';
 import ValuationChart from './components/ValuationChart';
 import UndervaluedStocks from './components/UndervaluedStocks';
+import TickerManagement from './components/TickerManagement';
 import './components/ValuationChart.css';
+// API base URL - relative path through Apache proxy
+// Apache proxies /valuation-api to the FastAPI container
+import { API_BASE_URL } from './config';
 
 function App() {
   const [activeTab, setActiveTab] = useState('valuation');
@@ -12,9 +16,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // API base URL - relative path through Apache proxy
-  // Apache proxies /valuation-api to the FastAPI container
-  const API_BASE_URL = '/valuation-api';
 
   const handleComputeValuations = async () => {
     setIsComputeDisabled(true);
@@ -184,11 +185,18 @@ function App() {
           >
             Undervalued Stocks
           </button>
+          <button 
+            className={`tab-button ${activeTab === 'manage-tickers' ? 'active' : ''}`}
+            onClick={() => setActiveTab('manage-tickers')}
+          >
+            Manage Tickers
+          </button>
         </div>
 
         <div className="tab-content">
           {activeTab === 'valuation' && renderValuationTab()}
           {activeTab === 'undervalued' && <UndervaluedStocks />}
+          {activeTab === 'manage-tickers' && <TickerManagement />}
         </div>
       </header>
     </div>
