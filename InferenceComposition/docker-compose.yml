@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # gRPC Inference Service
+  inference-service:
+    build:
+      context: ../InferenceService
+      dockerfile: Dockerfile
+    container_name: inference-service
+    ports:
+      - "50051:50051"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../InferenceService/model.pt:/app/model.pt
+    networks:
+      - inference-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; stub = grpc.insecure_channel('localhost:50051'); print('ok')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # FastAPI Ingestion Service
+  ingestion-service:
+    build:
+      context: ../IngestionService
+      dockerfile: Dockerfile
+    container_name: ingestion-service
+    ports:
+      - "8001:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - INFERENCE_SERVICE_HOST=inference-service
+      - INFERENCE_SERVICE_PORT=50051
+    env_file:
+      - ../IngestionService/.env
+    depends_on:
+      inference-service:
+        condition: service_healthy
+    networks:
+      - inference-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  inference-network:
+    driver: bridge
