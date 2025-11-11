@@ -37,7 +37,7 @@ DEFAULT_TICKERS = ["FSLR", "GOOG"]
 @app.on_event("startup")
 def on_startup():
     global executor, finnhub_client, inference_stub
-    executor = ThreadPoolExecutor(max_workers=4)
+    executor = ThreadPoolExecutor(max_workers=1)
     
     # Read API key from env
     API_KEY = os.getenv("FINNHUB_API_KEY")
