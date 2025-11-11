@@ -9,6 +9,7 @@ services:
     container_name: inference-service
     ports:
       - "50051:50051"
+      - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
@@ -51,6 +52,29 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - inference-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 networks:
   inference-network:
     driver: bridge
+
+volumes:
+  prometheus_data:
