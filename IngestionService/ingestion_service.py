@@ -3,8 +3,18 @@ from concurrent.futures import ThreadPoolExecutor
 import finnhub
 import time
 import logging
-from pathlib import Path
 import os
+import grpc
+from datetime import datetime
+
+# Import gRPC generated stubs
+# Note: These files should be copied from InferenceService/ to IngestionService/ or shared via volume
+try:
+    import inference_pb2
+    import inference_pb2_grpc
+except ImportError as e:
+    logger = logging.getLogger("finnhub_service")
+    logger.warning(f"Could not import gRPC stubs: {e}. Make sure inference_pb2.py and inference_pb2_grpc.py are available.")
 
 # Configure logging
 logging.basicConfig(
@@ -18,21 +28,33 @@ app = FastAPI()
 # Globals initialized on startup
 executor: ThreadPoolExecutor | None = None
 finnhub_client: finnhub.Client | None = None
+inference_stub = None  # gRPC stub for inference service
 
-# File that contains tickers (one per line)
-TICKER_FILE = Path("testTickers.txt") # TODO: pull from a central file used by both APIs
+# Hardcoded tickers for now - TODO: pull from database later
+DEFAULT_TICKERS = ["FSLR", "GOOG"]
 
 # startup event hook that initializes global resources like API client + thread pool
 @app.on_event("startup")
 def on_startup():
-    global executor, finnhub_client
-    executor = ThreadPoolExecutor(max_workers=4)
+    global executor, finnhub_client, inference_stub
+    executor = ThreadPoolExecutor(max_workers=1)
+    
     # Read API key from env
     API_KEY = os.getenv("FINNHUB_API_KEY")
     if not API_KEY:
         raise RuntimeError("Missing FINNHUB_API_KEY environment variable!")
     finnhub_client = finnhub.Client(api_key=API_KEY)
     logger.info("🚀 Executor + Finnhub client initialized")
+    
+    # Initialize gRPC client for inference service
+    try:
+        INFERENCE_SERVICE_HOST = os.getenv("INFERENCE_SERVICE_HOST", "localhost")
+        INFERENCE_SERVICE_PORT = os.getenv("INFERENCE_SERVICE_PORT", "50051")
+        channel = grpc.insecure_channel(f"{INFERENCE_SERVICE_HOST}:{INFERENCE_SERVICE_PORT}")
+        inference_stub = inference_pb2_grpc.InferenceServiceStub(channel)
+        logger.info(f"🚀 gRPC client initialized for InferenceService at {INFERENCE_SERVICE_HOST}:{INFERENCE_SERVICE_PORT}")
+    except Exception as e:
+        logger.warning(f"⚠️ Could not initialize gRPC client: {e}. Inference calls will be skipped.")
 
 @app.on_event("shutdown")
 def on_shutdown():
@@ -44,7 +66,7 @@ def on_shutdown():
 @app.post("/fetch-news")
 def fetch_news(background_tasks: BackgroundTasks):
     """
-    Endpoint to fetch news for tickers from file.
+    Endpoint to fetch news for tickers.
     Each request to Finnhub is rate-limited (2s delay).
     """
     global executor, finnhub_client
@@ -53,13 +75,9 @@ def fetch_news(background_tasks: BackgroundTasks):
         logger.error("Service not initialized")
         return {"error": "Service not initialized"}
 
-    if not TICKER_FILE.exists():
-        logger.error(f"Ticker file not found: {TICKER_FILE}")
-        return {"error": f"Ticker file not found: {TICKER_FILE}"}
-
-    # Load tickers from file
-    tickers = [line.strip() for line in TICKER_FILE.read_text().splitlines() if line.strip()]
-    logger.info(f"📂 Loaded {len(tickers)} tickers from {TICKER_FILE}")
+    # Load tickers from hardcoded list (TODO: pull from database)
+    tickers = DEFAULT_TICKERS
+    logger.info(f"📂 Loaded {len(tickers)} tickers: {tickers}")
 
     # Schedule the background task
     background_tasks.add_task(fetch_and_process_news, tickers)
@@ -90,8 +108,38 @@ def fetch_and_process_news(tickers: list[str]):
             time.sleep(2)
 
 def process_news(ticker: str, news: list[dict]):
-    """Background work (runs in thread pool)."""
+    """Background work (runs in thread pool). Processes headlines and calls inference service."""
+    global inference_stub
     logger.info(f"Processing {len(news)} headlines for {ticker}")
-    time.sleep(1)  # simulate work
-    for item in news[:2]:  # just log first 2 headlines
-        logger.info(f"{ticker}: {item.get('headline')}")
+    
+    if not inference_stub:
+        logger.warning(f"⚠️ Inference stub not available. Skipping inference for {ticker}")
+        return
+    
+    for item in news[:5]:  # Process first 5 headlines
+        try:
+            headline = item.get('headline', '')
+            source = item.get('source', 'unknown')
+            timestamp = item.get('datetime', '')
+            
+            # Create gRPC request
+            request = inference_pb2.InferenceRequest(
+                headline=headline,
+                ticker=ticker,
+                source=source,
+                timestamp=str(timestamp)
+            )
+            
+            # Make gRPC call to inference service
+            response = inference_stub.RunInference(request)
+            
+            logger.info(
+                f"✅ Inference result for {ticker}: "
+                f"headline='{headline[:50]}...', "
+                f"score={response.score}, "
+                f"label={response.label}"
+            )
+        except grpc.RpcError as e:
+            logger.error(f"❌ gRPC error for {ticker}: {e.code()} - {e.details()}")
+        except Exception as e:
+            logger.error(f"❌ Error processing headline for {ticker}: {e}")

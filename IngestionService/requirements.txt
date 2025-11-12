@@ -1,3 +1,5 @@
 fastapi
 uvicorn[standard]
 finnhub-python
+grpcio
+protobuf
