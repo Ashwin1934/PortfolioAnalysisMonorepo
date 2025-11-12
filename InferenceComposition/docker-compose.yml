@@ -36,7 +36,6 @@ services:
       - "8001:8000"
     environment:
       - PYTHONUNBUFFERED=1
-      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
       - INFERENCE_SERVICE_HOST=inference-service
       - INFERENCE_SERVICE_PORT=50051
     env_file:
