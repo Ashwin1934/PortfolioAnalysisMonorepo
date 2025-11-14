@@ -8,3 +8,9 @@ scrape_configs:
       - targets: ['inference-service:8000']
     scrape_interval: 2s
     scrape_timeout: 1s
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 5s
+    scrape_timeout: 4s
